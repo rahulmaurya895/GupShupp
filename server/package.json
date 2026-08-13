@@ -1,0 +1,16 @@
+{
+  "name": "gupshupp-backend",
+  "version": "1.0.0",
+  "description": "Ultra-Secure E2EE Backend for GupShupp App",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.9.2",
+    "socket.io": "^4.7.5"
+  }
+}
