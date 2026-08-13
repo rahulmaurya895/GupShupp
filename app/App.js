@@ -1391,6 +1391,7 @@ export default function App() {
         {/* Home Content Body */}
         <ScrollView style={styles.homeContent}>
           {bottomNav === 'CHATS' && (
+            <View style={styles.tabContentContainer}>
               {/* Recent Conversations List */}
               <Text style={[styles.sectionHeading, { color: theme.text }]}>💬 चैट्स (Conversations)</Text>
 
