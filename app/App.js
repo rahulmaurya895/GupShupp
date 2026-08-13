@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, Text, View, TextInput, TouchableOpacity, 
   FlatList, SafeAreaView, StatusBar, KeyboardAvoidingView, 
-  Platform, ActivityIndicator, Image, Modal, ScrollView, Animated,
+  Platform, ActivityIndicator, Image, ImageBackground, Modal, ScrollView, Animated,
   Keyboard, Linking
 } from 'react-native';
 import io from 'socket.io-client';
@@ -305,37 +305,164 @@ export default function App() {
   const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // Theme Palette
-  const theme = isDarkMode ? {
-    bg: '#000000',
-    surface: '#0b141a',
-    card: '#111b21',
-    border: '#202c33',
-    text: '#e9edef',
-    textMuted: '#8696a0',
-    accent: '#00a884',
-    accentLight: '#25D366',
-    bubbleMine: '#005c4b',
-    bubbleOther: '#202c33',
-    bubbleAi: '#0c2838',
-    aiBorder: '#0284c7',
-    headerBg: '#111b21',
-    inputBg: '#202c33',
-  } : {
-    bg: '#ECE5DD',
-    surface: '#ffffff',
-    card: '#f0f2f5',
-    border: '#e0e0e0',
-    text: '#111b21',
-    textMuted: '#667781',
-    accent: '#128C7E',
-    accentLight: '#25D366',
-    bubbleMine: '#d9fdd3',
-    bubbleOther: '#ffffff',
-    bubbleAi: '#e0f2fe',
-    aiBorder: '#38bdf8',
-    headerBg: '#128C7E',
-    inputBg: '#ffffff',
+  // 🎨 Phase 6: Neo-Gen Signature Appearance Studio State
+  const [activeThemeId, setActiveThemeId] = useState('CYBER'); // 'CYBER' | 'GOLD' | 'SUNSET' | 'MATRIX' | 'FROST'
+  const [bubbleGeometry, setBubbleGeometry] = useState('PILL'); // 'PILL' | 'SQUIRCLE' | 'ANGULAR'
+  const [fontSizeScale, setFontSizeScale] = useState('STANDARD'); // 'COMPACT' | 'STANDARD' | 'LARGE'
+  const [customWallpaperUri, setCustomWallpaperUri] = useState(null);
+  const [showAppearanceStudioModal, setShowAppearanceStudioModal] = useState(false);
+
+  const THEME_PALETTES = {
+    CYBER: {
+      id: 'CYBER',
+      name: '⚡ Cyber Neon',
+      bg: '#080c14',
+      surface: '#0f172a',
+      card: '#1e293b',
+      border: '#334155',
+      text: '#f8fafc',
+      textMuted: '#94a3b8',
+      accent: '#00f0ff',
+      accentLight: '#38bdf8',
+      accentSecondary: '#8b5cf6',
+      bubbleMine: '#0284c7',
+      bubbleOther: '#1e293b',
+      bubbleAi: '#082f49',
+      aiBorder: '#00f0ff',
+      headerBg: '#0b1120',
+      inputBg: '#0f172a',
+      navBg: 'rgba(15, 23, 42, 0.95)',
+      glow: '#00f0ff'
+    },
+    GOLD: {
+      id: 'GOLD',
+      name: '👑 Obsidian Gold',
+      bg: '#0a0a0a',
+      surface: '#141414',
+      card: '#1f1f1f',
+      border: '#2e2e2e',
+      text: '#fef3c7',
+      textMuted: '#a3a3a3',
+      accent: '#f59e0b',
+      accentLight: '#fbbf24',
+      accentSecondary: '#d97706',
+      bubbleMine: '#78350f',
+      bubbleOther: '#1f1f1f',
+      bubbleAi: '#451a03',
+      aiBorder: '#f59e0b',
+      headerBg: '#121212',
+      inputBg: '#141414',
+      navBg: 'rgba(20, 20, 20, 0.95)',
+      glow: '#f59e0b'
+    },
+    SUNSET: {
+      id: 'SUNSET',
+      name: '🔥 Sunset Vaporwave',
+      bg: '#12071a',
+      surface: '#1c0d29',
+      card: '#29143b',
+      border: '#3d1d57',
+      text: '#fce7f3',
+      textMuted: '#d8b4fe',
+      accent: '#f43f5e',
+      accentLight: '#fb7185',
+      accentSecondary: '#fb923c',
+      bubbleMine: '#9f1239',
+      bubbleOther: '#29143b',
+      bubbleAi: '#4c0519',
+      aiBorder: '#f43f5e',
+      headerBg: '#170924',
+      inputBg: '#1c0d29',
+      navBg: 'rgba(28, 13, 41, 0.95)',
+      glow: '#f43f5e'
+    },
+    MATRIX: {
+      id: 'MATRIX',
+      name: '🟢 Matrix Cyber',
+      bg: '#03120b',
+      surface: '#072014',
+      card: '#0d3321',
+      border: '#174a32',
+      text: '#d1fae5',
+      textMuted: '#6ee7b7',
+      accent: '#10b981',
+      accentLight: '#34d399',
+      accentSecondary: '#059669',
+      bubbleMine: '#065f46',
+      bubbleOther: '#0d3321',
+      bubbleAi: '#022c22',
+      aiBorder: '#10b981',
+      headerBg: '#051b10',
+      inputBg: '#072014',
+      navBg: 'rgba(7, 32, 20, 0.95)',
+      glow: '#10b981'
+    },
+    FROST: {
+      id: 'FROST',
+      name: '💎 Frost Sapphire',
+      bg: '#f1f5f9',
+      surface: '#ffffff',
+      card: '#e2e8f0',
+      border: '#cbd5e1',
+      text: '#0f172a',
+      textMuted: '#64748b',
+      accent: '#2563eb',
+      accentLight: '#3b82f6',
+      accentSecondary: '#60a5fa',
+      bubbleMine: '#2563eb',
+      bubbleOther: '#ffffff',
+      bubbleAi: '#eff6ff',
+      aiBorder: '#2563eb',
+      headerBg: '#ffffff',
+      inputBg: '#e2e8f0',
+      navBg: 'rgba(255, 255, 255, 0.95)',
+      glow: '#2563eb'
+    }
+  };
+
+  const theme = THEME_PALETTES[activeThemeId] || THEME_PALETTES.CYBER;
+
+  const getBubbleRadius = () => {
+    if (bubbleGeometry === 'PILL') return 22;
+    if (bubbleGeometry === 'ANGULAR') return 6;
+    return 14; // SQUIRCLE
+  };
+
+  const getFontSize = () => {
+    if (fontSizeScale === 'COMPACT') return 13;
+    if (fontSizeScale === 'LARGE') return 18;
+    return 15; // STANDARD
+  };
+
+  // Custom Gallery Wallpaper Picker
+  const pickCustomWallpaperFromGallery = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        alert('वॉलपेपर सेट करने के लिए गैलरी परमिशन आवश्यक है।');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+        base64: true
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        setCustomWallpaperUri(base64Uri);
+        await Storage.setItem('@gupshupp_custom_wallpaper', base64Uri);
+        alert('🎉 कस्टम गैलरी वॉलपेपर सफलतापूर्वक सेट हो गया!');
+      }
+    } catch (e) {
+      alert('वॉलपेपर सेलेक्ट करने में समस्या आई।');
+    }
+  };
+
+  const removeCustomWallpaper = async () => {
+    setCustomWallpaperUri(null);
+    await Storage.removeItem('@gupshupp_custom_wallpaper');
+    alert('वॉलपेपर डिफॉल्ट थीम पर रीसेट कर दिया गया।');
   };
 
   // 1. Initial Session Check & Settings Loading
@@ -344,6 +471,18 @@ export default function App() {
       try {
         const savedTheme = await Storage.getItem('@gupshupp_theme');
         if (savedTheme !== null) setIsDarkMode(savedTheme === 'dark');
+
+        const savedActiveTheme = await Storage.getItem('@gupshupp_active_theme');
+        if (savedActiveTheme) setActiveThemeId(savedActiveTheme);
+
+        const savedBubbleGeo = await Storage.getItem('@gupshupp_bubble_geometry');
+        if (savedBubbleGeo) setBubbleGeometry(savedBubbleGeo);
+
+        const savedFontScale = await Storage.getItem('@gupshupp_font_scale');
+        if (savedFontScale) setFontSizeScale(savedFontScale);
+
+        const savedCustomWall = await Storage.getItem('@gupshupp_custom_wallpaper');
+        if (savedCustomWall) setCustomWallpaperUri(savedCustomWall);
 
         const savedToken = await Storage.getItem('@gupshupp_token');
         const savedUser = await Storage.getItem('@gupshupp_user');
@@ -1500,6 +1639,105 @@ export default function App() {
                 </TouchableOpacity>
               </View>
 
+              {/* 🎨 Phase 6: Neo-Gen Signature Appearance Studio */}
+              <Text style={[styles.sectionHeading, { color: theme.text, marginTop: 20 }]}>🎨 Neo-Gen अपीयरेंस & डिज़ाइन स्टूडियो</Text>
+              <View style={[styles.appearanceStudioCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                
+                {/* 1. Theme Palette Selector */}
+                <Text style={[styles.appearanceSubHeading, { color: theme.text }]}>🌈 सिग्नेचर नियॉन थीम चुनें</Text>
+                <View style={styles.themePaletteGrid}>
+                  {Object.values(THEME_PALETTES).map((pal) => (
+                    <TouchableOpacity
+                      key={pal.id}
+                      style={[styles.themeChoiceCard, { backgroundColor: pal.bg, borderColor: activeThemeId === pal.id ? pal.accent : pal.border }]}
+                      onPress={async () => {
+                        setActiveThemeId(pal.id);
+                        await Storage.setItem('@gupshupp_active_theme', pal.id);
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={[styles.themeSwatchDot, { backgroundColor: pal.accent }]} />
+                        <Text style={[styles.themeChoiceName, { color: pal.text }]}>{pal.name}</Text>
+                      </View>
+                      {activeThemeId === pal.id && <Text style={{ color: pal.accent, fontWeight: '900', fontSize: 12 }}>Active ✓</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* 2. Bubble Geometry */}
+                <Text style={[styles.appearanceSubHeading, { color: theme.text, marginTop: 14 }]}>💬 चैट बबल का आकार (Bubble Shape)</Text>
+                <View style={styles.bubbleShapeRow}>
+                  {[
+                    { id: 'PILL', label: '💊 Neo-Pill' },
+                    { id: 'SQUIRCLE', label: '◽ Squircle' },
+                    { id: 'ANGULAR', label: '📐 Angular' }
+                  ].map((shape) => (
+                    <TouchableOpacity
+                      key={shape.id}
+                      style={[styles.bubbleShapeBtn, { backgroundColor: theme.card, borderColor: bubbleGeometry === shape.id ? theme.accent : theme.border }]}
+                      onPress={async () => {
+                        setBubbleGeometry(shape.id);
+                        await Storage.setItem('@gupshupp_bubble_geometry', shape.id);
+                      }}
+                    >
+                      <Text style={[styles.bubbleShapeText, { color: bubbleGeometry === shape.id ? theme.accent : theme.text }]}>{shape.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* 3. Typography Font Scale */}
+                <Text style={[styles.appearanceSubHeading, { color: theme.text, marginTop: 14 }]}>🔠 टेक्स्ट फॉन्ट साइज (Font Scaling)</Text>
+                <View style={styles.bubbleShapeRow}>
+                  {[
+                    { id: 'COMPACT', label: 'छोटा (13px)' },
+                    { id: 'STANDARD', label: 'मानक (15px)' },
+                    { id: 'LARGE', label: 'बड़ा (18px)' }
+                  ].map((scale) => (
+                    <TouchableOpacity
+                      key={scale.id}
+                      style={[styles.bubbleShapeBtn, { backgroundColor: theme.card, borderColor: fontSizeScale === scale.id ? theme.accent : theme.border }]}
+                      onPress={async () => {
+                        setFontSizeScale(scale.id);
+                        await Storage.setItem('@gupshupp_font_scale', scale.id);
+                      }}
+                    >
+                      <Text style={[styles.bubbleShapeText, { color: fontSizeScale === scale.id ? theme.accent : theme.text }]}>{scale.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* 4. Custom Gallery Photo Wallpaper */}
+                <Text style={[styles.appearanceSubHeading, { color: theme.text, marginTop: 14 }]}>🖼️ कस्टम चैट वॉलपेपर (Gallery Photos)</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+                  <TouchableOpacity 
+                    style={[styles.primaryBtn, { backgroundColor: theme.accent, flex: 1 }]}
+                    onPress={pickCustomWallpaperFromGallery}
+                  >
+                    <Text style={[styles.primaryBtnText, { color: '#000000' }]}>📁 गैलरी से फोटो लगाएं</Text>
+                  </TouchableOpacity>
+                  {customWallpaperUri && (
+                    <TouchableOpacity 
+                      style={[styles.removeWallBtn, { backgroundColor: '#ef4444' }]}
+                      onPress={removeCustomWallpaper}
+                    >
+                      <Text style={{ color: '#ffffff', fontWeight: '800' }}>✕ हटाएं</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* 5. Live Interactive Preview */}
+                <View style={[styles.appearancePreviewCard, { backgroundColor: theme.card, borderColor: theme.border, marginTop: 16 }]}>
+                  <Text style={[styles.previewLabel, { color: theme.textMuted }]}>👀 लाइव प्रीव्यू (Live Preview):</Text>
+                  <View style={[styles.previewBubbleMine, { backgroundColor: theme.bubbleMine, borderRadius: getBubbleRadius(), alignSelf: 'flex-end', marginTop: 6 }]}>
+                    <Text style={{ color: '#ffffff', fontSize: getFontSize() }}>यह मेरा नया सिग्नेचर GupShupp लुक है! ✨</Text>
+                  </View>
+                  <View style={[styles.previewBubbleOther, { backgroundColor: theme.bubbleOther, borderRadius: getBubbleRadius(), alignSelf: 'flex-start', marginTop: 6 }]}>
+                    <Text style={{ color: theme.text, fontSize: getFontSize() }}>वाह! यह डिज़ाइन बहुत ही प्रीमियम लग रहा है 🔥</Text>
+                  </View>
+                </View>
+
+              </View>
+
               <TouchableOpacity style={[styles.logoutBtnFull, { backgroundColor: '#ef4444', marginTop: 24 }]} onPress={handleLogout}>
                 <Text style={styles.logoutBtnFullText}>लॉगआउट करें (Logout) ➔</Text>
               </TouchableOpacity>
@@ -1510,27 +1748,30 @@ export default function App() {
         {/* Floating WhatsApp-Style Status Button */}
         <TouchableOpacity 
           activeOpacity={0.85}
-          style={[styles.floatingStatusFab, { backgroundColor: theme.accentLight }]}
+          style={[styles.floatingStatusFab, { backgroundColor: theme.accent }]}
           onPress={() => setShowCreateStoryModal(true)}
         >
-          <Text style={styles.floatingStatusFabText}>✍️ + स्टेटस लगाएं</Text>
+          <Text style={[styles.floatingStatusFabText, { color: '#000000' }]}>✍️ + स्टेटस लगाएं</Text>
         </TouchableOpacity>
 
-        {/* 4 Bottom Navigation Tabs */}
-        <View style={[styles.bottomNavBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+        {/* 4 Bottom Navigation Tabs - Floating Glass Style */}
+        <View style={[styles.neoFloatingNavBar, { backgroundColor: theme.navBg, borderColor: theme.border }]}>
           {[
             { id: 'CHATS', icon: '💬', label: 'चैट्स' },
             { id: 'GROUPS', icon: '👥', label: 'ग्रुप्स' },
             { id: 'CHANNELS', icon: '📢', label: 'चैनल्स' },
             { id: 'PROFILE', icon: '👤', label: 'प्रोफाइल' }
-          ].map((tab) => (
-            <TouchableOpacity key={tab.id} style={styles.bottomNavItem} onPress={() => setBottomNav(tab.id)}>
-              <Text style={styles.bottomNavIcon}>{tab.icon}</Text>
-              <Text style={[styles.bottomNavLabel, bottomNav === tab.id ? { color: theme.accentLight, fontWeight: '800' } : { color: theme.textMuted }]}>
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          ].map((tab) => {
+            const isActive = bottomNav === tab.id;
+            return (
+              <TouchableOpacity key={tab.id} style={[styles.bottomNavItem, isActive && { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16 }]} onPress={() => setBottomNav(tab.id)}>
+                <Text style={styles.bottomNavIcon}>{tab.icon}</Text>
+                <Text style={[styles.bottomNavLabel, isActive ? { color: theme.accent, fontWeight: '900' } : { color: theme.textMuted }]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Modal: Create Customizable Duration Story */}
@@ -1884,182 +2125,192 @@ export default function App() {
             <Text style={[styles.loadingHistoryText, { color: theme.textMuted }]}>चैट लोड हो रही है...</Text>
           </View>
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={visibleMessages}
-            keyExtractor={(item, index) => item._id || index.toString()}
-            style={{
-              flex: 1,
-              backgroundColor: chatWallpaper === 'emerald' ? '#041c18' : (chatWallpaper === 'slate' ? '#111827' : (chatWallpaper === 'doodle' ? '#0b141a' : theme.bg))
-            }}
-            contentContainerStyle={styles.messageList}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            renderItem={({ item }) => {
-              const isMine = item.sender === currentUser;
-              const isAiSender = item.sender === '🤖 GupShupp AI' || (item.isAi && item.sender !== currentUser);
-              const decryptedText = decryptText(item.text);
-              const isStarred = item.starredBy && item.starredBy.includes(currentUser);
-              const translatedText = translatedMessages[item._id];
-              const transcribedText = transcribedAudioMap[item._id];
+          <ImageBackground 
+            source={customWallpaperUri ? { uri: customWallpaperUri } : null} 
+            style={{ 
+              flex: 1, 
+              backgroundColor: chatWallpaper === 'emerald' ? '#041c18' : (chatWallpaper === 'slate' ? '#111827' : (chatWallpaper === 'doodle' ? '#0b141a' : theme.bg)) 
+            }} 
+            resizeMode="cover"
+          >
+            <View style={{ flex: 1, backgroundColor: customWallpaperUri ? 'rgba(0,0,0,0.65)' : 'transparent' }}>
+              <FlatList
+                ref={flatListRef}
+                data={visibleMessages}
+                keyExtractor={(item, index) => item._id || index.toString()}
+                style={{ flex: 1 }}
+                contentContainerStyle={styles.messageList}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                renderItem={({ item }) => {
+                  const isMine = item.sender === currentUser;
+                  const isAiSender = item.sender === '🤖 GupShupp AI' || (item.isAi && item.sender !== currentUser);
+                  const decryptedText = decryptText(item.text);
+                  const isStarred = item.starredBy && item.starredBy.includes(currentUser);
+                  const translatedText = translatedMessages[item._id];
+                  const transcribedText = transcribedAudioMap[item._id];
 
-              // AI Assistant Message Bubble
-              if (isAiSender) {
-                return (
-                  <View style={[styles.aiBubbleWrapper, { backgroundColor: theme.bubbleAi, borderColor: theme.aiBorder }]}>
-                    <View style={styles.aiHeader}>
-                      <Text style={styles.aiRobotEmoji}>🤖</Text>
-                      <Text style={styles.aiTitle}>GupShupp AI (Gemini 2.5)</Text>
-                    </View>
-                    <Text style={[styles.aiMessageText, { color: theme.text }]}>{decryptedText}</Text>
-                    <Text style={styles.aiTimestamp}>{item.time}</Text>
-                  </View>
-                );
-              }
-
-              return (
-                <TouchableOpacity 
-                  activeOpacity={0.85}
-                  onLongPress={() => setSelectedMessageForAction(item)}
-                  style={[styles.messageRow, isMine ? styles.myRow : styles.otherRow]}
-                >
-                  <View style={[styles.bubble, isMine ? { backgroundColor: theme.bubbleMine } : { backgroundColor: theme.bubbleOther }]}>
-                    {!isMine && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Text style={[styles.senderName, { color: theme.accentLight, marginBottom: 0 }]}>@{item.sender}</Text>
-                        {item.vipBadge && <Text style={{ fontSize: 10, fontWeight: '800' }}>{item.vipBadge}</Text>}
-                        {!isDirectChat && (
-                          <Text style={{ fontSize: 9, fontWeight: '800', color: (item.sender === 'admin' || item.sender === 'rahul') ? '#f59e0b' : '#38bdf8', backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 }}>
-                            {(item.sender === 'admin' || item.sender === 'rahul') ? '👑 Admin' : '👤 Member'}
-                          </Text>
-                        )}
-                      </View>
-                    )}
-
-                    {/* Quoted Reply Context */}
-                    {item.replyTo && (
-                      <View style={[styles.quotedReplyBox, { borderLeftColor: theme.accentLight }]}>
-                        <Text style={styles.quotedReplySender}>@{item.replyTo.sender}</Text>
-                        <Text style={styles.quotedReplyText} numberOfLines={1}>{item.replyTo.text}</Text>
-                      </View>
-                    )}
-
-                    {/* 📊 Interactive Poll Bubble */}
-                    {item.type === 'poll' && item.pollData && (
-                      <View style={styles.pollBubbleContainer}>
-                        <Text style={[styles.pollQuestionText, { color: theme.text }]}>📊 {item.pollData.question}</Text>
-                        <View style={styles.pollOptionsContainer}>
-                          {item.pollData.options.map((opt, i) => {
-                            const totalVotes = item.pollData.options.reduce((sum, o) => sum + (o.voters?.length || 0), 0);
-                            const optVotes = opt.voters?.length || 0;
-                            const pct = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0;
-                            const hasVoted = opt.voters?.includes(currentUser);
-
-                            return (
-                              <TouchableOpacity 
-                                key={i} 
-                                style={[styles.pollOptionRow, { backgroundColor: theme.card, borderColor: hasVoted ? theme.accentLight : theme.border }]}
-                                onPress={() => handleCastVote(item._id, opt.id)}
-                              >
-                                <View style={[styles.pollProgressFill, { width: `${pct}%`, backgroundColor: hasVoted ? 'rgba(0,168,132,0.3)' : 'rgba(255,255,255,0.08)' }]} />
-                                <Text style={[styles.pollOptionLabel, { color: theme.text }]}>{opt.text}</Text>
-                                <Text style={[styles.pollOptionPercent, { color: theme.accentLight }]}>{pct}% ({optVotes})</Text>
-                              </TouchableOpacity>
-                            );
-                          })}
+                  // AI Assistant Message Bubble
+                  if (isAiSender) {
+                    return (
+                      <View style={[styles.aiBubbleWrapper, { backgroundColor: theme.bubbleAi, borderColor: theme.aiBorder, borderRadius: getBubbleRadius() }]}>
+                        <View style={styles.aiHeader}>
+                          <Text style={styles.aiRobotEmoji}>🤖</Text>
+                          <Text style={styles.aiTitle}>GupShupp AI (Gemini 2.5)</Text>
                         </View>
+                        <Text style={[styles.aiMessageText, { color: theme.text, fontSize: getFontSize() }]}>{decryptedText}</Text>
+                        <Text style={styles.aiTimestamp}>{item.time}</Text>
                       </View>
-                    )}
+                    );
+                  }
 
-                    {/* Image Message with 💎 HD Badge or 🔥 1-Time View */}
-                    {item.type === 'image' && item.image && (
-                      item.isOneTime ? (
-                        <TouchableOpacity 
-                          style={[styles.oneTimeMediaBox, { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: '#ef4444' }]}
-                          onPress={() => setActiveOneTimePhoto({ image: item.image, messageId: item._id, remainingSec: 5 })}
-                        >
-                          <Text style={{ fontSize: 28 }}>🔥</Text>
-                          <View style={{ flex: 1, marginLeft: 10 }}>
-                            <Text style={{ color: '#ef4444', fontWeight: '900', fontSize: 13 }}>1-Time View Photo (5s)</Text>
-                            <Text style={{ color: theme.textMuted, fontSize: 11 }}>टैप करके 5 सेकंड के लिए देखें</Text>
+                  return (
+                    <TouchableOpacity 
+                      activeOpacity={0.85}
+                      onLongPress={() => setSelectedMessageForAction(item)}
+                      style={[styles.messageRow, isMine ? styles.myRow : styles.otherRow]}
+                    >
+                      <View style={[
+                        styles.bubble, 
+                        isMine ? { backgroundColor: theme.bubbleMine } : { backgroundColor: theme.bubbleOther },
+                        { borderRadius: getBubbleRadius() }
+                      ]}>
+                        {!isMine && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <Text style={[styles.senderName, { color: theme.accentLight, marginBottom: 0 }]}>@{item.sender}</Text>
+                            {item.vipBadge && <Text style={{ fontSize: 10, fontWeight: '800' }}>{item.vipBadge}</Text>}
+                            {!isDirectChat && (
+                              <Text style={{ fontSize: 9, fontWeight: '800', color: (item.sender === 'admin' || item.sender === 'rahul') ? '#f59e0b' : '#38bdf8', backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 }}>
+                                {(item.sender === 'admin' || item.sender === 'rahul') ? '👑 Admin' : '👤 Member'}
+                              </Text>
+                            )}
                           </View>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity onPress={() => setSelectedImageModal(item.image)} style={{ position: 'relative' }}>
-                          <Image source={{ uri: item.image }} style={styles.chatImageThumbnail} resizeMode="cover" />
-                          {item.isHd && (
-                            <View style={styles.hdBadgeOnImage}>
-                              <Text style={styles.hdBadgeText}>💎 HD</Text>
+                        )}
+
+                        {/* Quoted Reply Context */}
+                        {item.replyTo && (
+                          <View style={[styles.quotedReplyBox, { borderLeftColor: theme.accentLight }]}>
+                            <Text style={styles.quotedReplySender}>@{item.replyTo.sender}</Text>
+                            <Text style={styles.quotedReplyText} numberOfLines={1}>{item.replyTo.text}</Text>
+                          </View>
+                        )}
+
+                        {/* 📊 Interactive Poll Bubble */}
+                        {item.type === 'poll' && item.pollData && (
+                          <View style={styles.pollBubbleContainer}>
+                            <Text style={[styles.pollQuestionText, { color: theme.text }]}>📊 {item.pollData.question}</Text>
+                            <View style={styles.pollOptionsContainer}>
+                              {item.pollData.options.map((opt, i) => {
+                                const totalVotes = item.pollData.options.reduce((sum, o) => sum + (o.voters?.length || 0), 0);
+                                const optVotes = opt.voters?.length || 0;
+                                const pct = totalVotes > 0 ? Math.round((optVotes / totalVotes) * 100) : 0;
+                                const hasVoted = opt.voters?.includes(currentUser);
+
+                                return (
+                                  <TouchableOpacity 
+                                    key={i} 
+                                    style={[styles.pollOptionRow, { backgroundColor: theme.card, borderColor: hasVoted ? theme.accentLight : theme.border }]}
+                                    onPress={() => handleCastVote(item._id, opt.id)}
+                                  >
+                                    <View style={[styles.pollProgressFill, { width: `${pct}%`, backgroundColor: hasVoted ? 'rgba(0,168,132,0.3)' : 'rgba(255,255,255,0.08)' }]} />
+                                    <Text style={[styles.pollOptionLabel, { color: theme.text }]}>{opt.text}</Text>
+                                    <Text style={[styles.pollOptionPercent, { color: theme.accentLight }]}>{pct}% ({optVotes})</Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
                             </View>
-                          )}
-                        </TouchableOpacity>
-                      )
-                    )}
-
-                    {/* Voice Note Message with Speed & Transcription */}
-                    {item.type === 'audio' && (
-                      <View style={{ marginVertical: 4 }}>
-                        <View style={styles.voiceNoteBox}>
-                          <TouchableOpacity style={[styles.playPauseBtn, { backgroundColor: theme.accentLight }]}>
-                            <Text style={styles.playPauseIcon}>▶️</Text>
-                          </TouchableOpacity>
-                          <View style={styles.waveformContainer}>
-                            {[30, 60, 40, 80, 50, 90, 40, 70, 45, 60].map((h, i) => (
-                              <View key={i} style={[styles.waveBar, { height: h * 0.25, backgroundColor: theme.accentLight }]} />
-                            ))}
-                          </View>
-                          <TouchableOpacity 
-                            style={styles.speedBtn}
-                            onPress={() => {
-                              const cur = audioSpeedMap[item._id] || '1.0x';
-                              const nxt = cur === '1.0x' ? '1.5x' : (cur === '1.5x' ? '2.0x' : '1.0x');
-                              setAudioSpeedMap(prev => ({ ...prev, [item._id]: nxt }));
-                            }}
-                          >
-                            <Text style={[styles.speedBtnText, { color: theme.accentLight }]}>{audioSpeedMap[item._id] || '1.0x'}</Text>
-                          </TouchableOpacity>
-                        </View>
-                        {/* 📝 Voice Transcription Button */}
-                        <TouchableOpacity style={styles.transcribeBtn} onPress={() => handleTranscribeVoice(item._id, item.audio)}>
-                          <Text style={styles.transcribeBtnText}>📝 Transcribe (टेक्स्ट में पढ़ें)</Text>
-                        </TouchableOpacity>
-                        {transcribedText && (
-                          <View style={[styles.transcribedCard, { backgroundColor: theme.card }]}>
-                            <Text style={styles.transcribedText}>{transcribedText}</Text>
                           </View>
                         )}
-                      </View>
-                    )}
 
-                    {/* Document Message */}
-                    {item.type === 'document' && item.document && (
-                      <View style={[styles.documentCard, { backgroundColor: theme.surface }]}>
-                        <Text style={styles.docIcon}>📄</Text>
-                        <View style={{ flex: 1, marginLeft: 8 }}>
-                          <Text style={[styles.docName, { color: theme.text }]} numberOfLines={1}>{item.document.name}</Text>
-                          <Text style={[styles.docSize, { color: theme.textMuted }]}>{item.document.size}</Text>
-                        </View>
-                        <Text style={[styles.docDownload, { color: theme.accentLight }]}>Open ➔</Text>
-                      </View>
-                    )}
+                        {/* Image Message with 💎 HD Badge or 🔥 1-Time View */}
+                        {item.type === 'image' && item.image && (
+                          item.isOneTime ? (
+                            <TouchableOpacity 
+                              style={[styles.oneTimeMediaBox, { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: '#ef4444' }]}
+                              onPress={() => setActiveOneTimePhoto({ image: item.image, messageId: item._id, remainingSec: 5 })}
+                            >
+                              <Text style={{ fontSize: 28 }}>🔥</Text>
+                              <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={{ color: '#ef4444', fontWeight: '900', fontSize: 13 }}>1-Time View Photo (5s)</Text>
+                                <Text style={{ color: theme.textMuted, fontSize: 11 }}>टैप करके 5 सेकंड के लिए देखें</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity onPress={() => setSelectedImageModal(item.image)} style={{ position: 'relative' }}>
+                              <Image source={{ uri: item.image }} style={styles.chatImageThumbnail} resizeMode="cover" />
+                              {item.isHd && (
+                                <View style={styles.hdBadgeOnImage}>
+                                  <Text style={styles.hdBadgeText}>💎 HD</Text>
+                                </View>
+                              )}
+                            </TouchableOpacity>
+                          )
+                        )}
 
-                    {/* Rich Link Preview */}
-                    {item.linkPreview && (
-                      <View style={[styles.linkPreviewCard, { backgroundColor: theme.surface }]}>
-                        <Text style={[styles.linkTitle, { color: theme.accentLight }]}>{item.linkPreview.title}</Text>
-                        <Text style={[styles.linkDesc, { color: theme.textMuted }]}>{item.linkPreview.description}</Text>
-                        <Text style={styles.linkUrl}>{item.linkPreview.url}</Text>
-                      </View>
-                    )}
+                        {/* Voice Note Message with Speed & Transcription */}
+                        {item.type === 'audio' && (
+                          <View style={{ marginVertical: 4 }}>
+                            <View style={styles.voiceNoteBox}>
+                              <TouchableOpacity style={[styles.playPauseBtn, { backgroundColor: theme.accentLight }]}>
+                                <Text style={styles.playPauseIcon}>▶️</Text>
+                              </TouchableOpacity>
+                              <View style={styles.waveformContainer}>
+                                {[30, 60, 40, 80, 50, 90, 40, 70, 45, 60].map((h, i) => (
+                                  <View key={i} style={[styles.waveBar, { height: h * 0.25, backgroundColor: theme.accentLight }]} />
+                                ))}
+                              </View>
+                              <TouchableOpacity 
+                                style={styles.speedBtn}
+                                onPress={() => {
+                                  const cur = audioSpeedMap[item._id] || '1.0x';
+                                  const nxt = cur === '1.0x' ? '1.5x' : (cur === '1.5x' ? '2.0x' : '1.0x');
+                                  setAudioSpeedMap(prev => ({ ...prev, [item._id]: nxt }));
+                                }}
+                              >
+                                <Text style={[styles.speedBtnText, { color: theme.accentLight }]}>{audioSpeedMap[item._id] || '1.0x'}</Text>
+                              </TouchableOpacity>
+                            </View>
+                            {/* 📝 Voice Transcription Button */}
+                            <TouchableOpacity style={styles.transcribeBtn} onPress={() => handleTranscribeVoice(item._id, item.audio)}>
+                              <Text style={styles.transcribeBtnText}>📝 Transcribe (टेक्स्ट में पढ़ें)</Text>
+                            </TouchableOpacity>
+                            {transcribedText && (
+                              <View style={[styles.transcribedCard, { backgroundColor: theme.card }]}>
+                                <Text style={styles.transcribedText}>{transcribedText}</Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
 
-                    {/* Text Message */}
-                    {item.type === 'text' && decryptedText ? (
-                      <Text style={[styles.messageText, { color: isMine && !isDarkMode ? '#000000' : theme.text }]}>
-                        {decryptedText}
-                      </Text>
-                    ) : null}
+                        {/* Document Message */}
+                        {item.type === 'document' && item.document && (
+                          <View style={[styles.documentCard, { backgroundColor: theme.surface }]}>
+                            <Text style={styles.docIcon}>📄</Text>
+                            <View style={{ flex: 1, marginLeft: 8 }}>
+                              <Text style={[styles.docName, { color: theme.text }]} numberOfLines={1}>{item.document.name}</Text>
+                              <Text style={[styles.docSize, { color: theme.textMuted }]}>{item.document.size}</Text>
+                            </View>
+                            <Text style={[styles.docDownload, { color: theme.accentLight }]}>Open ➔</Text>
+                          </View>
+                        )}
+
+                        {/* Rich Link Preview */}
+                        {item.linkPreview && (
+                          <View style={[styles.linkPreviewCard, { backgroundColor: theme.surface }]}>
+                            <Text style={[styles.linkTitle, { color: theme.accentLight }]}>{item.linkPreview.title}</Text>
+                            <Text style={[styles.linkDesc, { color: theme.textMuted }]}>{item.linkPreview.description}</Text>
+                            <Text style={styles.linkUrl}>{item.linkPreview.url}</Text>
+                          </View>
+                        )}
+
+                        {/* Text Message */}
+                        {item.type === 'text' && decryptedText ? (
+                          <Text style={[styles.messageText, { color: isMine && activeThemeId === 'FROST' ? '#ffffff' : theme.text, fontSize: getFontSize() }]}>
+                            {decryptedText}
+                          </Text>
+                        ) : null}
 
                     {/* Translated Text Preview */}
                     {translatedText && (
@@ -3461,9 +3712,25 @@ const styles = StyleSheet.create({
   gameResetText: { color: '#ffffff', fontWeight: '800', fontSize: 13 },
   toolsContainer: { paddingVertical: 8 },
   toolCard: { padding: 14, borderRadius: 14, borderWidth: 1, alignItems: 'center' },
-  toolCardTitle: { fontSize: 14, fontWeight: '800', marginBottom: 6 },
-  diceLargeText: { fontSize: 36, fontWeight: '900', marginVertical: 4 },
   calcContainer: { paddingVertical: 8 },
   calcResultBox: { padding: 12, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', marginTop: 12 },
-  calcPerPerson: { fontSize: 18, fontWeight: '900' }
+  calcPerPerson: { fontSize: 18, fontWeight: '900' },
+
+  // Phase 6 Styles: Neo-Gen Signature Appearance Studio
+  appearanceStudioCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginTop: 8 },
+  appearanceSubHeading: { fontSize: 13, fontWeight: '800', marginBottom: 8 },
+  themePaletteGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  themeChoiceCard: { width: '48%', padding: 10, borderRadius: 12, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  themeSwatchDot: { width: 12, height: 12, borderRadius: 6 },
+  themeChoiceName: { fontSize: 11, fontWeight: '800' },
+  bubbleShapeRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  bubbleShapeBtn: { flex: 1, paddingVertical: 8, paddingHorizontal: 6, alignItems: 'center', borderWidth: 1.5 },
+  bubbleShapeText: { fontSize: 11, fontWeight: '800' },
+  removeWallBtn: { paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
+  appearancePreviewCard: { padding: 12, borderRadius: 12, borderWidth: 1 },
+  previewLabel: { fontSize: 11, fontWeight: '700' },
+  previewBubbleMine: { maxWidth: '85%', paddingHorizontal: 12, paddingVertical: 8 },
+  previewBubbleOther: { maxWidth: '85%', paddingHorizontal: 12, paddingVertical: 8 },
+  neoFloatingNavBar: { flexDirection: 'row', marginHorizontal: 14, marginBottom: 10, paddingVertical: 6, paddingHorizontal: 6, borderRadius: 24, borderWidth: 1, elevation: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+  neoBottomNavItem: { flex: 1, alignItems: 'center', paddingVertical: 4 }
 });
