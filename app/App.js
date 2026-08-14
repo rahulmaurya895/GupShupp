@@ -664,11 +664,19 @@ export default function App() {
           if (res?.success && Array.isArray(res.replies)) setAiSmartReplies(res.replies);
         });
       }
+
+      // 👁️ Real-Time Two-Phone Read Receipt: Auto-mark as read if actively viewing this chat room
+      if (data && data.room && data.sender !== currentUser) {
+        socket.emit('mark_as_read', { room: data.room, username: currentUser, isStealth: ghostMode });
+      }
     });
 
     socket.on('load_history', (history) => {
       if (Array.isArray(history)) setMessages(history);
       setIsLoadingHistory(false);
+      if (currentUser) {
+        socket.emit('mark_as_read', { room: activeRoom, username: currentUser, isStealth: ghostMode });
+      }
     });
 
     socket.on('messages_read', ({ reader }) => {
@@ -1037,6 +1045,7 @@ export default function App() {
     setSearchQuery('');
     navigateToChat();
     socket.emit('join_room', { room: dmRoom, username: currentUser });
+    socket.emit('mark_as_read', { room: dmRoom, username: currentUser, isStealth: ghostMode });
   };
 
   // Join Group Room
@@ -1053,6 +1062,7 @@ export default function App() {
     setSearchQuery('');
     navigateToChat();
     socket.emit('join_room', { room: cleanRoom, username: currentUser });
+    socket.emit('mark_as_read', { room: cleanRoom, username: currentUser, isStealth: ghostMode });
   };
 
   // Open Broadcast Channel Room
@@ -1069,6 +1079,7 @@ export default function App() {
     setSearchQuery('');
     navigateToChat();
     socket.emit('join_room', { room: roomName, username: currentUser });
+    socket.emit('mark_as_read', { room: roomName, username: currentUser, isStealth: ghostMode });
   };
 
   // Send Message (with Rapid-Tap Debounce Guard)
