@@ -358,6 +358,7 @@ export default function App() {
   // 🐒 Chaos Monkey & Safety Guard
   const [chaosWarningModal, setChaosWarningModal] = useState({ visible: false, title: '', message: '' });
   const lastActionTapTimeRef = useRef(0);
+  const lastTypingEmitRef = useRef(0);
 
   // Home Bottom Tabs: 'CHATS' | 'GROUPS' | 'CHANNELS' | 'PROFILE'
   const [bottomNav, setBottomNav] = useState('CHATS');
@@ -2941,7 +2942,11 @@ export default function App() {
               }}
               onChangeText={(txt) => {
                 setMessage(txt);
-                if (!ghostMode && !silentTyping) socket.emit('typing_start', { room: activeRoom, username: currentUser });
+                const now = Date.now();
+                if (!ghostMode && !silentTyping && (now - lastTypingEmitRef.current > 1000)) {
+                  lastTypingEmitRef.current = now;
+                  socket.emit('typing_start', { room: activeRoom, username: currentUser });
+                }
                 if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
                 typingTimeoutRef.current = setTimeout(() => socket.emit('typing_stop', { room: activeRoom, username: currentUser }), 1500);
               }}

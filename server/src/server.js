@@ -1216,13 +1216,22 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 10. WebRTC Calling
+    // 10. WebRTC P2P Audio/Video Calling & ICE Renegotiation
     socket.on('call_initiate', ({ targetUser, fromUser, isVideo }) => {
         io.emit('incoming_call', { targetUser, fromUser, isVideo });
     });
     socket.on('call_accept', ({ targetUser, fromUser }) => io.emit('call_accepted', { targetUser, fromUser }));
     socket.on('call_reject', ({ targetUser, fromUser }) => io.emit('call_rejected', { targetUser, fromUser }));
     socket.on('call_end', ({ targetUser, fromUser }) => io.emit('call_ended', { targetUser, fromUser }));
+    socket.on('webrtc_offer', ({ targetUser, fromUser, offer }) => {
+        io.emit('webrtc_offer_received', { targetUser, fromUser, offer });
+    });
+    socket.on('webrtc_answer', ({ targetUser, fromUser, answer }) => {
+        io.emit('webrtc_answer_received', { targetUser, fromUser, answer });
+    });
+    socket.on('webrtc_ice_candidate', ({ targetUser, fromUser, candidate }) => {
+        io.emit('webrtc_ice_candidate_received', { targetUser, fromUser, candidate });
+    });
 
     // 11. Push Tokens
     socket.on('register_push_token', ({ username, token }) => {
