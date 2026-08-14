@@ -1,0 +1,94 @@
+name: 🚀 GupShupp Oracle Cloud CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: 🌐 Deploy to Oracle Cloud Always-Free ARM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔍 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🚀 SSH Deploy to Oracle Cloud & PM2 Zero-Downtime Reload
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: ${{ secrets.ORACLE_PORT || 22 }}
+          script_stop: true
+          script: |
+            echo "================================================================="
+            echo "🚀 [CI/CD] Starting Automated Deployment on Oracle Cloud VM..."
+            echo "================================================================="
+
+            # 1. Locate repository directory
+            if [ -d "$HOME/GupShupp" ]; then
+              cd "$HOME/GupShupp"
+            elif [ -d "/var/www/GupShupp" ]; then
+              cd "/var/www/GupShupp"
+            else
+              cd "$HOME"
+              git clone https://github.com/${{ github.repository }}.git GupShupp
+              cd GupShupp
+            fi
+
+            echo "📍 Working directory: $(pwd)"
+
+            # 2. Fetch latest changes from main branch
+            echo "📥 Pulling latest commits from GitHub..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 3. Securely inject Environment Variables from GitHub Secrets
+            echo "🔐 Writing secure production .env file..."
+            mkdir -p server
+            cat << 'EOF' > server/.env
+            PORT=3000
+            NODE_ENV=production
+            CLUSTER_MODE=true
+            MONGO_URI=${{ secrets.MONGO_URI }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            EOF
+
+            # 4. Install Server Dependencies
+            echo "📦 Installing backend dependencies..."
+            cd server
+            npm install --production
+
+            # 5. Build Expo Web Static Frontend
+            echo "🌐 Exporting 24/7 Web App Static Bundle..."
+            cd ../app
+            npm install
+            npx expo export --platform web
+            cd ../server
+
+            # 6. PM2 Zero-Downtime Reload / Start
+            echo "🔄 Triggering PM2 Zero-Downtime Cluster Reload..."
+            if ! command -v pm2 &> /dev/null; then
+              echo "📦 Installing PM2 globally..."
+              sudo npm install -g pm2
+            fi
+
+            if pm2 describe gupshupp-backend > /dev/null 2>&1; then
+              echo "⚡ Reloading active gupshupp-backend cluster..."
+              pm2 reload ecosystem.config.js --update-env
+            else
+              echo "🚀 Starting new gupshupp-backend cluster..."
+              pm2 start ecosystem.config.js
+            fi
+
+            pm2 save
+            
+            echo "================================================================="
+            echo "✅ [CI/CD] GupShupp 7.0 Deployment Successful & Live 24/7!"
+            echo "================================================================="
+            pm2 status gupshupp-backend
