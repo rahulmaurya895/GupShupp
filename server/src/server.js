@@ -614,7 +614,7 @@ io.on('connection', (socket) => {
 
         io.to(room).emit('room_members_count', { room, count: memberCount });
 
-        // Load History
+        // Load History (MongoDB or Fast In-Memory Store)
         if (mongoose.connection.readyState === 1) {
             Message.find({ room })
                 .sort({ timestamp: 1 })
@@ -623,7 +623,10 @@ io.on('connection', (socket) => {
                 .then(history => socket.emit('load_history', history))
                 .catch(err => console.error(`History error for ${room}:`, err.message));
         } else {
-            socket.emit('load_history', []);
+            const memoryHistory = Array.from(messageStore.values())
+                .filter(m => m && m.room === room && !m.isDeleted)
+                .slice(-80);
+            socket.emit('load_history', memoryHistory);
         }
 
         // Notify delivery if NOT in ghost / stealth mode
