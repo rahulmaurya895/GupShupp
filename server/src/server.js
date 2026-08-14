@@ -93,6 +93,37 @@ setInterval(() => {
     }
 }, 5000);
 
+// 🛡️ Universal XSS, Script Injection & NoSQL Input Sanitizer
+function sanitizeInputText(input) {
+    if (!input || typeof input !== 'string') return '';
+    
+    // If it's an E2EE encrypted ciphertext (🔒[AES256_E2EE]:...), leave cipher base64 intact
+    if (input.startsWith('🔒[AES256_E2EE]:') || input.startsWith('🔒[E2EE_V2]:') || input.startsWith('🔒[E2EE]:')) {
+        return input;
+    }
+
+    return input
+        // Neutralize script tags
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        // Neutralize iframe, object, embed, svg, applet, meta, link tags
+        .replace(/<(iframe|object|embed|svg|applet|meta|link)\b[^>]*>/gi, '')
+        .replace(/<\/(iframe|object|embed|svg|applet|meta|link)>/gi, '')
+        // Neutralize inline event handlers (onload, onerror, onclick, onmouseover, etc.)
+        .replace(/\bon\w+\s*=\s*(['"]).*?\1/gi, '')
+        .replace(/\bon\w+\s*=\s*[^>\s]+/gi, '')
+        // Neutralize javascript: pseudo-protocol
+        .replace(/javascript\s*:/gi, 'blocked-script:')
+        // Neutralize data:text/html or data:application/javascript
+        .replace(/data\s*:\s*(text\/html|application\/javascript)/gi, 'blocked-data:');
+}
+
+function sanitizeIdentifier(input, fallback = 'general') {
+    if (typeof input !== 'string') return fallback;
+    // Strip HTML/special characters from Room / Channel / Group / User names to prevent NoSQL/XSS attacks
+    const cleaned = input.replace(/[<>"'`\$\{\}\\\/]/g, '').trim();
+    return cleaned || fallback;
+}
+
 const userPrivacySettingsCache = new Map(); // username -> privacySettings
 
 function isUserGhost(username) {
@@ -657,16 +688,18 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Set Presence (Respecting Ghost Mode)
+    // Set Presence (Respecting Ghost Mode with XSS Sanitization)
     socket.on('set_user_presence', ({ username, avatar, status, privacySettings }) => {
         if (username) {
-            const normalized = username.trim().toLowerCase();
+            const normalized = sanitizeIdentifier(username, 'user').toLowerCase();
+            const cleanStatus = sanitizeInputText(status);
             currentUsername = normalized;
             if (privacySettings) {
                 userPrivacySettingsCache.set(normalized, privacySettings);
                 if (memoryUsers.has(normalized)) {
                     const u = memoryUsers.get(normalized);
                     u.privacySettings = privacySettings;
+                    u.status = cleanStatus;
                     memoryUsers.set(normalized, u);
                 }
             }
@@ -683,18 +716,19 @@ io.on('connection', (socket) => {
         broadcastOnlineUsers();
     });
 
-    // Profile & Privacy Settings Update
+    // Profile & Privacy Settings Update (Sanitized)
     socket.on('update_profile', async ({ username, avatar, status, pin, privacySettings, aiAutoResponder, pinnedChats }, callback) => {
-        const normalized = (username || '').toLowerCase();
+        const normalized = sanitizeIdentifier(username, 'user').toLowerCase();
+        const cleanStatus = sanitizeInputText(status);
         if (privacySettings) {
             userPrivacySettingsCache.set(normalized, privacySettings);
         }
         if (mongoose.connection.readyState === 1) {
-            await User.findOneAndUpdate({ username: normalized }, { avatar, status, pin, privacySettings, aiAutoResponder, pinnedChats });
+            await User.findOneAndUpdate({ username: normalized }, { avatar, status: cleanStatus, pin, privacySettings, aiAutoResponder, pinnedChats });
         } else if (memoryUsers.has(normalized)) {
             const u = memoryUsers.get(normalized);
             if (avatar) u.avatar = avatar;
-            if (status) u.status = status;
+            if (status) u.status = cleanStatus;
             if (pin !== undefined) u.pin = pin;
             if (privacySettings) u.privacySettings = privacySettings;
             if (aiAutoResponder) u.aiAutoResponder = aiAutoResponder;
@@ -710,53 +744,57 @@ io.on('connection', (socket) => {
         if (typeof callback === 'function') callback({ success: true });
     });
 
-    // 1. Join Room
+    // 1. Join Room (Sanitized)
     socket.on('join_room', ({ room, username }) => {
         if (!room) return;
-        currentRoom = room;
-        currentUsername = username ? username.trim().toLowerCase() : currentUsername || 'Anonymous';
-        socket.join(room);
+        const cleanRoom = sanitizeIdentifier(room, 'general');
+        currentRoom = cleanRoom;
+        currentUsername = username ? sanitizeIdentifier(username, 'anonymous').toLowerCase() : currentUsername || 'Anonymous';
+        socket.join(cleanRoom);
 
-        if (!roomMembersMap.has(room)) roomMembersMap.set(room, new Map());
-        roomMembersMap.get(room).set(socket.id, currentUsername);
-        const memberCount = roomMembersMap.get(room).size;
+        if (!roomMembersMap.has(cleanRoom)) roomMembersMap.set(cleanRoom, new Map());
+        roomMembersMap.get(cleanRoom).set(socket.id, currentUsername);
+        const memberCount = roomMembersMap.get(cleanRoom).size;
 
-        io.to(room).emit('room_members_count', { room, count: memberCount });
+        io.to(cleanRoom).emit('room_members_count', { room: cleanRoom, count: memberCount });
 
         // Load History (MongoDB or Fast In-Memory Store)
         if (mongoose.connection.readyState === 1) {
-            Message.find({ room })
+            Message.find({ room: cleanRoom })
                 .sort({ timestamp: 1 })
                 .limit(80)
                 .lean()
                 .then(history => socket.emit('load_history', history))
-                .catch(err => console.error(`History error for ${room}:`, err.message));
+                .catch(err => console.error(`History error for ${cleanRoom}:`, err.message));
         } else {
             const memoryHistory = Array.from(messageStore.values())
-                .filter(m => m && m.room === room && !m.isDeleted)
+                .filter(m => m && m.room === cleanRoom && !m.isDeleted)
                 .slice(-80);
             socket.emit('load_history', memoryHistory);
         }
 
         // Notify delivery if NOT in ghost / stealth mode
         if (!isUserGhost(currentUsername)) {
-            socket.to(room).emit('messages_read', { room, reader: currentUsername });
+            socket.to(cleanRoom).emit('messages_read', { room: cleanRoom, reader: currentUsername });
         }
     });
 
-    // 2. Send Super Message (Text, Image, Audio, Doc, Poll, AI)
+    // 2. Send Super Message (Text, Image, Audio, Doc, Poll, AI) - With XSS Sanitization
     socket.on('send_message', async (msgData) => {
         const { room, sender, text, type, image, audio, document, pollData, replyTo, isAi, disappearingTtl } = msgData;
         if (!room) return;
 
+        const cleanRoom = sanitizeIdentifier(room, 'general');
+        const cleanSender = sanitizeIdentifier(sender, 'user');
+        const cleanText = sanitizeInputText(text);
         const messageTime = msgData.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const messageId = msgData._id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         const expiresAt = disappearingTtl > 0 ? new Date(Date.now() + disappearingTtl) : null;
 
-        // Auto-detect Link Preview
+        // Auto-detect Link Preview (with URL sanitation)
         let linkPreview = null;
-        if (text && (text.includes('http://') || text.includes('https://'))) {
-            const urlMatch = text.match(/https?:\/\/[^\s]+/);
+        if (cleanText && (cleanText.includes('http://') || cleanText.includes('https://'))) {
+            const urlMatch = cleanText.match(/https?:\/\/[^\s"'<>]+/);
             if (urlMatch) {
                 linkPreview = {
                     url: urlMatch[0],
@@ -768,9 +806,9 @@ io.on('connection', (socket) => {
 
         const broadcastData = {
             _id: messageId,
-            room,
-            sender,
-            text: text || '',
+            room: cleanRoom,
+            sender: cleanSender,
+            text: cleanText || '',
             type: type || 'text',
             image: image || null,
             audio: audio || null,
@@ -779,7 +817,7 @@ io.on('connection', (socket) => {
             replyTo: replyTo || null,
             reactions: {},
             status: 'delivered',
-            readBy: [sender],
+            readBy: [cleanSender],
             starredBy: [],
             linkPreview,
             transcript: '',
@@ -1172,15 +1210,17 @@ io.on('connection', (socket) => {
 
     socket.on('post_channel_comment', ({ channelName, postId, sender, avatar, badge, text }, callback) => {
         if (!postId || !sender || !text) return;
+        const cleanComment = sanitizeInputText(text);
+        const cleanSender = sanitizeIdentifier(sender, 'member');
         if (!channelCommentsStore.has(postId)) channelCommentsStore.set(postId, []);
         const newComment = {
             id: `cmt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            channelName,
+            channelName: sanitizeIdentifier(channelName, 'channel'),
             postId,
-            sender,
+            sender: cleanSender,
             avatar: avatar || '🦁',
             badge: badge || '👤 Member',
-            text,
+            text: cleanComment,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             likes: []
         };
