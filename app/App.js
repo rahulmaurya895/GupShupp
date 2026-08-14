@@ -572,7 +572,7 @@ export default function App() {
       });
 
       // Push Notification trigger
-      if (data && !data.isSystem && data.sender !== currentUser && Platform.OS !== 'web') {
+      if (Notifications && Notifications.scheduleNotificationAsync && data && !data.isSystem && data.sender !== currentUser && Platform.OS !== 'web') {
         const decryptedBody = decryptText(data.text);
         Notifications.scheduleNotificationAsync({
           content: {
@@ -880,7 +880,7 @@ export default function App() {
     if (activeOneTimePhoto) { setActiveOneTimePhoto(null); return true; }
     if (showMiniAppModal) { setShowMiniAppModal(false); return true; }
     if (showSendOptionsModal) { setShowSendOptionsModal(false); return true; }
-    if (showChannelCommentsModal) { setShowChannelCommentsModal(false); return true; }
+    if (activeChannelPostForComments) { setActiveChannelPostForComments(null); return true; }
     if (showSharedVaultModal) { setShowSharedVaultModal(false); return true; }
     if (showStageRoomModal) { setShowStageRoomModal(false); return true; }
     if (showQrLoginModal) { setShowQrLoginModal(false); return true; }
@@ -942,7 +942,7 @@ export default function App() {
     };
   }, [
     screen, bottomNav, activeRoom, currentUser, activeOneTimePhoto, showMiniAppModal, 
-    showSendOptionsModal, showChannelCommentsModal, showSharedVaultModal, showStageRoomModal, 
+    showSendOptionsModal, activeChannelPostForComments, showSharedVaultModal, showStageRoomModal, 
     showQrLoginModal, showCreateStoryModal, activeStoryModal, showStoryViewers, 
     showCreateChannelModal, selectedMessageForAction, selectedImageModal, showPollModal, 
     showSummaryModal, showDisappearingModal, showNewDmModal, showNewGroupModal, incomingCall, isSearchActive
@@ -3323,13 +3323,13 @@ export default function App() {
                     onChangeText={setCalcPeopleCount}
                   />
 
-                  {calcBillTotal && (
+                  {Boolean(calcBillTotal) ? (
                     <View style={[styles.calcResultBox, { backgroundColor: theme.card, borderColor: theme.accentLight }]}>
                       <Text style={[styles.calcPerPerson, { color: theme.accentLight }]}>
                         प्रति व्यक्ति: ₹{Math.round((parseFloat(calcBillTotal) || 0) / (parseInt(calcPeopleCount) || 1))}
                       </Text>
                     </View>
-                  )}
+                  ) : null}
 
                   <TouchableOpacity 
                     style={[styles.primaryBtn, { backgroundColor: theme.accentLight, marginTop: 14 }]}
