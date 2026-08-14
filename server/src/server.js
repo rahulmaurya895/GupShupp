@@ -11,6 +11,15 @@ const { createAdapter } = require('@socket.io/cluster-adapter');
 const { setupWorker } = require('@socket.io/sticky');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'gupshupp_ultra_secure_jwt_secret_2026';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'gupshupp_jwt_refresh_secure_secret_key_2026';
+
+function generateAuthTokens(username) {
+    const cleanUser = (username || '').toLowerCase();
+    const nonce = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const token = jwt.sign({ username: cleanUser, nonce }, JWT_SECRET, { expiresIn: '30d' });
+    const refreshToken = jwt.sign({ username: cleanUser, type: 'refresh', nonce }, JWT_REFRESH_SECRET, { expiresIn: '90d' });
+    return { token, refreshToken };
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -563,8 +572,8 @@ app.post('/api/register', async (req, res) => {
             });
         }
 
-        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '30d' });
-        res.json({ success: true, message: "Account created successfully!", token, username, avatar: userAvatar });
+        const tokens = generateAuthTokens(username);
+        res.json({ success: true, message: "Account created successfully!", token: tokens.token, refreshToken: tokens.refreshToken, username, avatar: userAvatar });
     } catch (err) {
         res.status(500).json({ success: false, message: "Server error during registration." });
     }
@@ -582,11 +591,12 @@ app.post('/api/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ success: false, message: "गलत पासवर्ड।" });
 
-        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '30d' });
+        const tokens = generateAuthTokens(username);
         res.json({ 
             success: true, 
             message: "Login successful!", 
-            token, 
+            token: tokens.token, 
+            refreshToken: tokens.refreshToken,
             username, 
             avatar: user.avatar || '🦁', 
             status: user.status || 'Available 🟢', 
@@ -597,6 +607,20 @@ app.post('/api/login', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ success: false, message: "Server error during login." });
+    }
+});
+
+// Silent Token Refresh HTTP Route
+app.post('/api/refresh-token', async (req, res) => {
+    try {
+        const { refreshToken, username } = req.body;
+        if (!refreshToken) return res.status(400).json({ success: false, message: "Refresh token required." });
+        const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+        const userToRefresh = (decoded.username || username || '').toLowerCase();
+        const newTokens = generateAuthTokens(userToRefresh);
+        res.json({ success: true, ...newTokens, username: userToRefresh });
+    } catch (err) {
+        res.status(401).json({ success: false, message: "Invalid or expired refresh token." });
     }
 });
 
@@ -646,12 +670,13 @@ io.on('connection', (socket) => {
                     pinnedChats: []
                 });
             }
-            const token = jwt.sign({ username: cleanUser }, JWT_SECRET, { expiresIn: '30d' });
+            const tokens = generateAuthTokens(cleanUser);
             console.log(`✨ [Auth Registered] New user @${cleanUser}`);
             if (typeof callback === 'function') {
                 callback({ 
                     success: true, 
-                    token, 
+                    token: tokens.token, 
+                    refreshToken: tokens.refreshToken,
                     username: cleanUser, 
                     avatar: userAvatar, 
                     status: 'Available 🟢', 
@@ -683,12 +708,13 @@ io.on('connection', (socket) => {
                 if (typeof callback === 'function') callback({ success: false, message: "गलत पासवर्ड।" });
                 return;
             }
-            const token = jwt.sign({ username: cleanUser }, JWT_SECRET, { expiresIn: '30d' });
+            const tokens = generateAuthTokens(cleanUser);
             console.log(`🚀 [Auth Logged In] User @${cleanUser}`);
             if (typeof callback === 'function') {
                 callback({
                     success: true,
-                    token,
+                    token: tokens.token,
+                    refreshToken: tokens.refreshToken,
                     username: cleanUser,
                     avatar: user.avatar || '🦁',
                     status: user.status || 'Available 🟢',
@@ -700,6 +726,23 @@ io.on('connection', (socket) => {
             }
         } catch (e) {
             if (typeof callback === 'function') callback({ success: false, message: "लॉगिन विफल रहा: " + e.message });
+        }
+    });
+
+    // 🔄 Silent JWT Token Auto-Refresh Socket Event
+    socket.on('auth_refresh_token', ({ refreshToken, username }, callback) => {
+        try {
+            if (!refreshToken) {
+                if (typeof callback === 'function') callback({ success: false, message: 'Refresh token required' });
+                return;
+            }
+            const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+            const userToRefresh = (decoded.username || username || '').toLowerCase();
+            const newTokens = generateAuthTokens(userToRefresh);
+            socket.emit('token_refreshed', newTokens);
+            if (typeof callback === 'function') callback({ success: true, ...newTokens, username: userToRefresh });
+        } catch (err) {
+            if (typeof callback === 'function') callback({ success: false, message: 'Invalid or expired refresh token' });
         }
     });
 

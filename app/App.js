@@ -592,6 +592,7 @@ export default function App() {
         if (savedCustomWall) setCustomWallpaperUri(savedCustomWall);
 
         const savedToken = await Storage.getItem('@gupshupp_token');
+        const savedRefreshToken = await Storage.getItem('@gupshupp_refresh_token');
         const savedUser = await Storage.getItem('@gupshupp_user');
         const savedPin = await Storage.getItem('@gupshupp_pin');
         const savedAvatar = await Storage.getItem('@gupshupp_avatar');
@@ -626,6 +627,17 @@ export default function App() {
             privacySettings: { ghostMode: savedGhost === 'true' }
           });
           
+          // 🔄 Silent Token Background Refresh Verification (Zero Data Loss on Expiry)
+          if (savedRefreshToken) {
+            socket.emit('auth_refresh_token', { refreshToken: savedRefreshToken, username: savedUser }, async (refreshRes) => {
+              if (refreshRes?.success && refreshRes.token) {
+                setAuthToken(refreshRes.token);
+                await Storage.setItem('@gupshupp_token', refreshRes.token);
+                if (refreshRes.refreshToken) await Storage.setItem('@gupshupp_refresh_token', refreshRes.refreshToken);
+              }
+            });
+          }
+
           if (savedPin) setScreen('PIN_LOCK');
           else setScreen('HOME');
         } else {
@@ -681,6 +693,17 @@ export default function App() {
 
     socket.on('disconnect', () => {
       setIsConnected(false);
+    });
+
+    // 🔄 Silent Token Auto-Refresh Listener
+    socket.on('token_refreshed', async ({ token, refreshToken }) => {
+      if (token) {
+        setAuthToken(token);
+        await Storage.setItem('@gupshupp_token', token);
+      }
+      if (refreshToken) {
+        await Storage.setItem('@gupshupp_refresh_token', refreshToken);
+      }
     });
 
     socket.on('receive_message', (data) => {
@@ -941,7 +964,7 @@ export default function App() {
     }
   };
 
-  const onAuthSuccess = async (token, username, avatar, status, pin, priv, autoResp, pinned) => {
+  const onAuthSuccess = async (token, username, avatar, status, pin, priv, autoResp, pinned, refreshToken) => {
     setAuthToken(token);
     setCurrentUser(username);
     if (avatar) setUserAvatar(avatar);
@@ -951,6 +974,7 @@ export default function App() {
     if (pinned) setPinnedChats(pinned);
 
     await Storage.setItem('@gupshupp_token', token);
+    if (refreshToken) await Storage.setItem('@gupshupp_refresh_token', refreshToken);
     await Storage.setItem('@gupshupp_user', username);
     if (avatar) await Storage.setItem('@gupshupp_avatar', avatar);
     if (status) await Storage.setItem('@gupshupp_status', status);
@@ -991,7 +1015,7 @@ export default function App() {
       if (res && res.success) {
         handled = true;
         setIsAuthenticating(false);
-        onAuthSuccess(res.token, res.username, res.avatar, res.status, res.pin, res.privacySettings, res.aiAutoResponder, res.pinnedChats);
+        onAuthSuccess(res.token, res.username, res.avatar, res.status, res.pin, res.privacySettings, res.aiAutoResponder, res.pinnedChats, res.refreshToken);
         return;
       }
       
@@ -1006,7 +1030,7 @@ export default function App() {
         handled = true;
         setIsAuthenticating(false);
         if (data && data.success) {
-          onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats);
+          onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats, data.refreshToken);
         } else {
           setAuthError(data?.message || res?.message || 'लॉगिन / साइन अप विफल रहा।');
         }
@@ -1030,7 +1054,7 @@ export default function App() {
           handled = true;
           setIsAuthenticating(false);
           if (data && data.success) {
-            onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats);
+            onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats, data.refreshToken);
           } else {
             setAuthError(data?.message || 'लॉगिन विफल रहा।');
           }
