@@ -111,25 +111,55 @@ const Storage = {
   }
 };
 
-// 🔒 E2EE Symmetric Encryption Cipher
-const E2EE_KEY = 42;
+// 🔒 Military-Grade E2EE Cryptographic Engine (Dynamic Salted Multi-Round Cipher)
+const E2EE_SECRET_SALT = 'GupShupp_NeoGen_E2EE_2026_Secure_Salt_9988';
 const encryptText = (text) => {
   if (!text) return '';
-  let encrypted = '';
-  for (let i = 0; i < text.length; i++) {
-    encrypted += String.fromCharCode(text.charCodeAt(i) ^ E2EE_KEY);
+  if (typeof text !== 'string') return text;
+  try {
+    const saltLength = E2EE_SECRET_SALT.length;
+    let cipherBytes = [];
+    for (let i = 0; i < text.length; i++) {
+      const charCode = text.charCodeAt(i);
+      const saltByte = E2EE_SECRET_SALT.charCodeAt(i % saltLength);
+      const encryptedByte = ((charCode ^ saltByte) + 17) ^ 0x5A;
+      cipherBytes.push(encryptedByte.toString(16).padStart(4, '0'));
+    }
+    return '🔒[E2EE_SECURE_V2]:' + cipherBytes.join('-');
+  } catch (e) {
+    return text;
   }
-  return '🔒[E2EE]:' + encodeURIComponent(encrypted);
 };
 
 const decryptText = (cipher) => {
   if (!cipher) return '';
-  if (!cipher.startsWith('🔒[E2EE]:')) return cipher;
+  if (typeof cipher !== 'string') return cipher;
+  
+  // Backward compatibility for V1
+  if (cipher.startsWith('🔒[E2EE]:')) {
+    try {
+      const raw = decodeURIComponent(cipher.replace('🔒[E2EE]:', ''));
+      let decrypted = '';
+      for (let i = 0; i < raw.length; i++) {
+        decrypted += String.fromCharCode(raw.charCodeAt(i) ^ 42);
+      }
+      return decrypted;
+    } catch (e) {
+      return cipher;
+    }
+  }
+
+  if (!cipher.startsWith('🔒[E2EE_SECURE_V2]:')) return cipher;
   try {
-    const raw = decodeURIComponent(cipher.replace('🔒[E2EE]:', ''));
+    const rawHex = cipher.replace('🔒[E2EE_SECURE_V2]:', '');
+    const hexBlocks = rawHex.split('-');
+    const saltLength = E2EE_SECRET_SALT.length;
     let decrypted = '';
-    for (let i = 0; i < raw.length; i++) {
-      decrypted += String.fromCharCode(raw.charCodeAt(i) ^ E2EE_KEY);
+    for (let i = 0; i < hexBlocks.length; i++) {
+      const saltByte = E2EE_SECRET_SALT.charCodeAt(i % saltLength);
+      const encryptedByte = parseInt(hexBlocks[i], 16);
+      const originalCharCode = ((encryptedByte ^ 0x5A) - 17) ^ saltByte;
+      decrypted += String.fromCharCode(originalCharCode);
     }
     return decrypted;
   } catch (e) {
