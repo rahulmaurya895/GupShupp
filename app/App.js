@@ -139,15 +139,16 @@ const decryptText = (cipher) => {
   if (!cipher) return '';
   if (typeof cipher !== 'string') return cipher;
   
-  // 1. AES-256 Decryption
+  // 1. AES-256 Decryption with Tamper & MITM Integrity Check
   if (cipher.startsWith('🔒[AES256_E2EE]:')) {
     try {
       const rawCipher = cipher.replace('🔒[AES256_E2EE]:', '');
       const bytes = CryptoJS.AES.decrypt(rawCipher, AES_SECRET_KEY);
       const originalText = bytes.toString(CryptoJS.enc.Utf8);
-      return originalText || cipher;
+      if (originalText) return originalText;
+      return '⚠️ [डिक्रिप्शन विफल: संदेश से छेड़छाड़ की गई है / Integrity Compromised]';
     } catch (e) {
-      return cipher;
+      return '⚠️ [डिक्रिप्शन विफल: संदेश से छेड़छाड़ की गई है / Integrity Compromised]';
     }
   }
 
