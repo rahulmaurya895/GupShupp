@@ -188,6 +188,468 @@ const decryptText = (cipher) => {
   return cipher;
 };
 
+// 🔐 Biometric Hardware Authentication Module
+let LocalAuthentication = null;
+try {
+  LocalAuthentication = require('expo-local-authentication');
+} catch (e) {}
+
+// 🌍 Global Multi-Language System (i18n)
+const SUPPORTED_LANGUAGES = [
+  { code: 'en', label: 'English 🇬🇧', native: 'English' },
+  { code: 'hi', label: 'हिन्दी 🇮🇳', native: 'हिन्दी' },
+  { code: 'es', label: 'Español 🇪🇸', native: 'Español' },
+  { code: 'fr', label: 'Français 🇫🇷', native: 'Français' },
+  { code: 'ar', label: 'العربية 🇸🇦', native: 'العربية' },
+  { code: 'ru', label: 'Русский 🇷🇺', native: 'Русский' },
+  { code: 'de', label: 'Deutsch 🇩🇪', native: 'Deutsch' },
+  { code: 'ja', label: '日本語 🇯🇵', native: '日本語' },
+  { code: 'pt', label: 'Português 🇧🇷', native: 'Português' },
+  { code: 'mr', label: 'मराठी 🇮🇳', native: 'मराठी' },
+  { code: 'ta', label: 'தமிழ் 🇮🇳', native: 'தமிழ்' },
+  { code: 'bn', label: 'বাংলা 🇮🇳', native: 'বাংলা' }
+];
+
+const TRANSLATIONS = {
+  en: {
+    app_name: 'GupShupp',
+    tagline: 'Enterprise Super App',
+    chats: 'Chats',
+    groups: 'Groups',
+    channels: 'Channels',
+    profile: 'Profile',
+    search_placeholder: 'Search chats, contacts, or messages...',
+    type_message_placeholder: 'Type a message or ask @ai...',
+    send: 'Send',
+    online: 'Online',
+    offline: 'Offline',
+    connecting: 'Connecting...',
+    slow_network: 'Slow Network 🐢',
+    direct_messages: 'Direct Messages',
+    group_rooms: 'Community Rooms',
+    settings: 'Settings',
+    appearance: 'Appearance Studio',
+    privacy_security: 'Privacy & Security',
+    ghost_mode: 'Ghost / Stealth Mode',
+    app_lock: 'App PIN & Biometrics',
+    cloud_backup: 'Cloud Backup & Vault',
+    backup_now: 'Backup to Cloud ☁️',
+    restore_now: 'Restore from Cloud 📥',
+    starred_messages: 'Starred Messages ⭐',
+    language: 'App Language 🌐',
+    biometric_prompt: 'Unlock GupShupp with Biometrics',
+    biometric_btn: 'Use Fingerprint / FaceID 👆',
+    enter_pin: 'Enter 4-Digit PIN to Unlock',
+    login: 'Login',
+    register: 'Sign Up',
+    username_placeholder: 'Choose Username',
+    password_placeholder: 'Enter Password',
+    admin_only_badge: '🔒 Only Admins can send messages in this group',
+    failed_retry: '⚠️ Upload Failed • Tap to Retry 🔄'
+  },
+  hi: {
+    app_name: 'गपशप',
+    tagline: 'सुपर मैसेजिंग ऐप',
+    chats: 'चैट्स',
+    groups: 'ग्रुप्स',
+    channels: 'चैनल्स',
+    profile: 'प्रोफाइल',
+    search_placeholder: 'चैट्स, कॉन्टैक्ट्स या मैसेज खोजें...',
+    type_message_placeholder: 'मैसेज लिखें या @ai सवाल पूछें...',
+    send: 'भेजें',
+    online: 'ऑनलाइन',
+    offline: 'ऑफलाइन',
+    connecting: 'कनेक्ट हो रहा है...',
+    slow_network: 'धीमा नेटवर्क 🐢',
+    direct_messages: 'डायरेक्ट मैसेजेस',
+    group_rooms: 'कम्युनिटी रूम्स',
+    settings: 'सेटिंग्स',
+    appearance: 'अपीयरेंस स्टूडियो',
+    privacy_security: 'प्राइवेसी व सुरक्षा',
+    ghost_mode: 'घोस्ट / स्टेल्थ मोड',
+    app_lock: 'ऐप पिन व बायोमेट्रिक्स',
+    cloud_backup: 'क्लाउड बैकअप व वॉल्ट',
+    backup_now: 'क्लाउड पर बैकअप लें ☁️',
+    restore_now: 'क्लाउड से रीस्टोर करें 📥',
+    starred_messages: 'स्टार किए गए संदेश ⭐',
+    language: 'ऐप की भाषा 🌐',
+    biometric_prompt: 'बायोमेट्रिक्स से गपशप अनलॉक करें',
+    biometric_btn: 'फिंगरप्रिंट / फेस का उपयोग करें 👆',
+    enter_pin: 'अनलॉक करने के लिए 4-अंकों का पिन दर्ज करें',
+    login: 'लॉगिन',
+    register: 'साइन अप',
+    username_placeholder: 'यूज़रनेम चुनें',
+    password_placeholder: 'पासवर्ड दर्ज करें',
+    admin_only_badge: '🔒 इस ग्रुप में सिर्फ एडमिन मैसेज भेज सकते हैं',
+    failed_retry: '⚠️ अपलोड विफल • दोबारा भेजें 🔄'
+  },
+  es: {
+    app_name: 'GupShupp',
+    tagline: 'Súper Aplicación',
+    chats: 'Chats',
+    groups: 'Grupos',
+    channels: 'Canales',
+    profile: 'Perfil',
+    search_placeholder: 'Buscar chats, contactos...',
+    type_message_placeholder: 'Escribe un mensaje...',
+    send: 'Enviar',
+    online: 'En línea',
+    offline: 'Desconectado',
+    connecting: 'Conectando...',
+    slow_network: 'Red lenta 🐢',
+    direct_messages: 'Mensajes directos',
+    group_rooms: 'Salas comunitarias',
+    settings: 'Ajustes',
+    appearance: 'Estudio de diseño',
+    privacy_security: 'Privacidad y seguridad',
+    ghost_mode: 'Modo fantasma',
+    app_lock: 'PIN y biometría',
+    cloud_backup: 'Copia en la nube',
+    backup_now: 'Copia en la nube ☁️',
+    restore_now: 'Restaurar de la nube 📥',
+    starred_messages: 'Mensajes destacados ⭐',
+    language: 'Idioma 🌐',
+    biometric_prompt: 'Desbloquear con biometría',
+    biometric_btn: 'Usar huella / FaceID 👆',
+    enter_pin: 'Introduce el PIN',
+    login: 'Iniciar sesión',
+    register: 'Registrarse',
+    username_placeholder: 'Usuario',
+    password_placeholder: 'Contraseña',
+    admin_only_badge: '🔒 Solo administradores',
+    failed_retry: '⚠️ Error • Reintentar 🔄'
+  },
+  fr: {
+    app_name: 'GupShupp',
+    tagline: 'Super Application',
+    chats: 'Discussions',
+    groups: 'Groupes',
+    channels: 'Canaux',
+    profile: 'Profil',
+    search_placeholder: 'Rechercher...',
+    type_message_placeholder: 'Écrivez un message...',
+    send: 'Envoyer',
+    online: 'En ligne',
+    offline: 'Hors ligne',
+    connecting: 'Connexion...',
+    slow_network: 'Réseau lent 🐢',
+    direct_messages: 'Messages directs',
+    group_rooms: 'Salons',
+    settings: 'Paramètres',
+    appearance: 'Studio d\'apparence',
+    privacy_security: 'Confidentialité',
+    ghost_mode: 'Mode fantôme',
+    app_lock: 'PIN et biométrie',
+    cloud_backup: 'Sauvegarde cloud',
+    backup_now: 'Sauvegarder ☁️',
+    restore_now: 'Restaurer 📥',
+    starred_messages: 'Favoris ⭐',
+    language: 'Langue 🌐',
+    biometric_prompt: 'Déverrouiller avec la biométrie',
+    biometric_btn: 'Empreinte / FaceID 👆',
+    enter_pin: 'Entrez le PIN',
+    login: 'Connexion',
+    register: 'S\'inscrire',
+    username_placeholder: 'Identifiant',
+    password_placeholder: 'Mot de passe',
+    admin_only_badge: '🔒 Administrateurs seulement',
+    failed_retry: '⚠️ Échec • Réessayer 🔄'
+  },
+  ar: {
+    app_name: 'GupShupp',
+    tagline: 'تطبيق المحادثة الفائق',
+    chats: 'المحادثات',
+    groups: 'المجموعات',
+    channels: 'القنوات',
+    profile: 'الملف الشخصي',
+    search_placeholder: 'بحث...',
+    type_message_placeholder: 'اكتب رسالة...',
+    send: 'إرسال',
+    online: 'متصل',
+    offline: 'غير متصل',
+    connecting: 'جاري الاتصال...',
+    slow_network: 'شبكة بطيئة 🐢',
+    direct_messages: 'الرسائل المباشرة',
+    group_rooms: 'غرف المجتمع',
+    settings: 'الإعدادات',
+    appearance: 'استوديو المظهر',
+    privacy_security: 'الخصوصية والأمان',
+    ghost_mode: 'وضع التخفي',
+    app_lock: 'قفل التطبيق',
+    cloud_backup: 'النسخ السحابي',
+    backup_now: 'نسخ احتياطي ☁️',
+    restore_now: 'استعادة 📥',
+    starred_messages: 'المميزة بنجمة ⭐',
+    language: 'اللغة 🌐',
+    biometric_prompt: 'فتح باستخدام البصمة',
+    biometric_btn: 'استخدام البصمة 👆',
+    enter_pin: 'أدخل رمز PIN',
+    login: 'تسجيل الدخول',
+    register: 'إنشاء حساب',
+    username_placeholder: 'اسم المستخدم',
+    password_placeholder: 'كلمة المرور',
+    admin_only_badge: '🔒 المشرفون فقط',
+    failed_retry: '⚠️ فشل • إعادة المحاولة 🔄'
+  },
+  ru: {
+    app_name: 'GupShupp',
+    tagline: 'Супер-приложение',
+    chats: 'Чаты',
+    groups: 'Группы',
+    channels: 'Каналы',
+    profile: 'Профиль',
+    search_placeholder: 'Поиск...',
+    type_message_placeholder: 'Напишите сообщение...',
+    send: 'Отправить',
+    online: 'В сети',
+    offline: 'Не в сети',
+    connecting: 'Подключение...',
+    slow_network: 'Медленная сеть 🐢',
+    direct_messages: 'Личные сообщения',
+    group_rooms: 'Комнаты',
+    settings: 'Настройки',
+    appearance: 'Внешний вид',
+    privacy_security: 'Безопасность',
+    ghost_mode: 'Режим невидимки',
+    app_lock: 'ПИН-код и биометрия',
+    cloud_backup: 'Резервная копия',
+    backup_now: 'Создать копию ☁️',
+    restore_now: 'Восстановить 📥',
+    starred_messages: 'Избранное ⭐',
+    language: 'Язык 🌐',
+    biometric_prompt: 'Разблокировать по биометрии',
+    biometric_btn: 'Отпечаток / FaceID 👆',
+    enter_pin: 'Введите ПИН',
+    login: 'Вход',
+    register: 'Регистрация',
+    username_placeholder: 'Имя пользователя',
+    password_placeholder: 'Пароль',
+    admin_only_badge: '🔒 Только администраторы',
+    failed_retry: '⚠️ Ошибка • Повторить 🔄'
+  },
+  de: {
+    app_name: 'GupShupp',
+    tagline: 'Enterprise Super App',
+    chats: 'Chats',
+    groups: 'Gruppen',
+    channels: 'Kanäle',
+    profile: 'Profil',
+    search_placeholder: 'Suchen...',
+    type_message_placeholder: 'Nachricht schreiben...',
+    send: 'Senden',
+    online: 'Online',
+    offline: 'Offline',
+    connecting: 'Verbinden...',
+    slow_network: 'Langsames Netz 🐢',
+    direct_messages: 'Direktnachrichten',
+    group_rooms: 'Räume',
+    settings: 'Einstellungen',
+    appearance: 'Design-Studio',
+    privacy_security: 'Sicherheit',
+    ghost_mode: 'Geister-Modus',
+    app_lock: 'PIN & Biometrie',
+    cloud_backup: 'Cloud-Backup',
+    backup_now: 'Sichern ☁️',
+    restore_now: 'Wiederherstellen 📥',
+    starred_messages: 'Favoriten ⭐',
+    language: 'Sprache 🌐',
+    biometric_prompt: 'Mit Biometrie entsperren',
+    biometric_btn: 'Biometrie nutzen 👆',
+    enter_pin: 'PIN eingeben',
+    login: 'Anmelden',
+    register: 'Registrieren',
+    username_placeholder: 'Benutzername',
+    password_placeholder: 'Passwort',
+    admin_only_badge: '🔒 Nur Admins',
+    failed_retry: '⚠️ Fehler • Wiederholen 🔄'
+  },
+  ja: {
+    app_name: 'GupShupp',
+    tagline: '次世代スーパーアプリ',
+    chats: 'チャット',
+    groups: 'グループ',
+    channels: 'チャンネル',
+    profile: 'プロフィール',
+    search_placeholder: '検索...',
+    type_message_placeholder: 'メッセージを入力...',
+    send: '送信',
+    online: 'オンライン',
+    offline: 'オフライン',
+    connecting: '接続中...',
+    slow_network: '低速ネットワーク 🐢',
+    direct_messages: 'ダイレクトメッセージ',
+    group_rooms: 'ルーム',
+    settings: '設定',
+    appearance: 'デザインスタジオ',
+    privacy_security: 'セキュリティ',
+    ghost_mode: 'ゴーストモード',
+    app_lock: 'PIN＆生体認証',
+    cloud_backup: 'クラウドバックアップ',
+    backup_now: 'バックアップ ☁️',
+    restore_now: '復元 📥',
+    starred_messages: 'スター付き ⭐',
+    language: '言語 🌐',
+    biometric_prompt: '生体認証で解除',
+    biometric_btn: '指紋 / FaceID 👆',
+    enter_pin: 'PINを入力',
+    login: 'ログイン',
+    register: '新規登録',
+    username_placeholder: 'ユーザー名',
+    password_placeholder: 'パスワード',
+    admin_only_badge: '🔒 管理者のみ',
+    failed_retry: '⚠️ 送信失敗 • 再試行 🔄'
+  },
+  pt: {
+    app_name: 'GupShupp',
+    tagline: 'Super Aplicativo',
+    chats: 'Conversas',
+    groups: 'Grupos',
+    channels: 'Canais',
+    profile: 'Perfil',
+    search_placeholder: 'Pesquisar...',
+    type_message_placeholder: 'Digite uma mensagem...',
+    send: 'Enviar',
+    online: 'Online',
+    offline: 'Offline',
+    connecting: 'Conectando...',
+    slow_network: 'Rede lenta 🐢',
+    direct_messages: 'Mensagens diretas',
+    group_rooms: 'Salas',
+    settings: 'Configurações',
+    appearance: 'Aparência',
+    privacy_security: 'Privacidade',
+    ghost_mode: 'Modo fantasma',
+    app_lock: 'PIN e biometria',
+    cloud_backup: 'Backup na nuvem',
+    backup_now: 'Fazer backup ☁️',
+    restore_now: 'Restaurar 📥',
+    starred_messages: 'Favoritos ⭐',
+    language: 'Idioma 🌐',
+    biometric_prompt: 'Desbloquear com biometria',
+    biometric_btn: 'Usar biometria 👆',
+    enter_pin: 'Digite o PIN',
+    login: 'Entrar',
+    register: 'Cadastrar',
+    username_placeholder: 'Usuário',
+    password_placeholder: 'Senha',
+    admin_only_badge: '🔒 Apenas administradores',
+    failed_retry: '⚠️ Erro • Tentar de novo 🔄'
+  },
+  mr: {
+    app_name: 'गपशप',
+    tagline: 'सुपर मेसेजिंग ॲप',
+    chats: 'गप्पा',
+    groups: 'गट',
+    channels: 'वाहिन्या',
+    profile: 'प्रोफाइल',
+    search_placeholder: 'शोधा...',
+    type_message_placeholder: 'संदेश लिहा...',
+    send: 'पाठवा',
+    online: 'ऑनलाइन',
+    offline: 'ऑफलाइन',
+    connecting: 'कनेक्ट होत आहे...',
+    slow_network: 'मंद नेटवर्क 🐢',
+    direct_messages: 'थेट संदेश',
+    group_rooms: 'खोल्या',
+    settings: 'सेटिंग्ज',
+    appearance: 'स्वरूप स्टुडिओ',
+    privacy_security: 'सुरक्षा',
+    ghost_mode: 'घोस्ट मोड',
+    app_lock: 'पिन व बायोमेट्रिक्स',
+    cloud_backup: 'क्लाउड बॅकअप',
+    backup_now: 'बॅकअप घ्या ☁️',
+    restore_now: 'पुनर्संचयित करा 📥',
+    starred_messages: 'तारांकित ⭐',
+    language: 'भाषा 🌐',
+    biometric_prompt: 'बायोमेट्रिक्सने अनलॉक करा',
+    biometric_btn: 'फिंगरप्रिंट 👆',
+    enter_pin: 'पिन प्रविष्ट करा',
+    login: 'लॉगिन',
+    register: 'साइन अप',
+    username_placeholder: 'वापरकर्ता',
+    password_placeholder: 'पासवर्ड',
+    admin_only_badge: '🔒 फक्त ॲडमिन',
+    failed_retry: '⚠️ अयशस्वी • पुन्हा प्रयत्न 🔄'
+  },
+  ta: {
+    app_name: 'GupShupp',
+    tagline: 'சூப்பர் செயலி',
+    chats: 'அரட்டைகள்',
+    groups: 'குழுக்கள்',
+    channels: 'சேனல்கள்',
+    profile: 'சுயவிவரம்',
+    search_placeholder: 'தேடுங்கள்...',
+    type_message_placeholder: 'செய்தி...',
+    send: 'அனுப்பு',
+    online: 'ஆன்லைன்',
+    offline: 'ஆஃப்லைன்',
+    connecting: 'இணைக்கிறது...',
+    slow_network: 'மெதுவான நெட்வொர்க் 🐢',
+    direct_messages: 'நேரடி அரட்டை',
+    group_rooms: 'அறைகள்',
+    settings: 'அமைப்புகள்',
+    appearance: 'தோற்றம்',
+    privacy_security: 'பாதுகாப்பு',
+    ghost_mode: 'கோஸ்ட்',
+    app_lock: 'பயோமெட்ரிக்ஸ்',
+    cloud_backup: 'கிளவுட் காப்புநகல்',
+    backup_now: 'காப்பிடு ☁️',
+    restore_now: 'மீட்டெடு 📥',
+    starred_messages: 'நட்சத்திரம் ⭐',
+    language: 'மொழி 🌐',
+    biometric_prompt: 'பயோமெட்ரிக் திறக்கவும்',
+    biometric_btn: 'கைரேகை 👆',
+    enter_pin: 'பின் உள்ளிடவும்',
+    login: 'உள்நுழைக',
+    register: 'பதிவுசெய்க',
+    username_placeholder: 'பயனர்பெயர்',
+    password_placeholder: 'கடவுச்சொல்',
+    admin_only_badge: '🔒 நிர்வாகி மட்டும்',
+    failed_retry: '⚠️ மீண்டும் முயற்சி 🔄'
+  },
+  bn: {
+    app_name: 'গপশপ',
+    tagline: 'সুপার মেসেজিং অ্যাপ',
+    chats: 'চ্যাট',
+    groups: 'গ্রুপ',
+    channels: 'চ্যানেল',
+    profile: 'প্রোফাইল',
+    search_placeholder: 'অনুসন্ধান...',
+    type_message_placeholder: 'বার্তা লিখুন...',
+    send: 'পাঠান',
+    online: 'অনলাইন',
+    offline: 'অফলাইন',
+    connecting: 'সংযুক্ত হচ্ছে...',
+    slow_network: 'ধীর নেটওয়ার্ক 🐢',
+    direct_messages: 'সরাসরি বার্তা',
+    group_rooms: 'রুম',
+    settings: 'সেটিংস',
+    appearance: 'অ্যাপিয়ারেন্স',
+    privacy_security: 'নিরাপত্তা',
+    ghost_mode: 'ঘোস্ট মোড',
+    app_lock: 'পিন ও বায়োমেট্রিক্স',
+    cloud_backup: 'ক্লাউড ব্যাকআপ',
+    backup_now: 'ব্যাকআপ ☁️',
+    restore_now: 'পুনরুদ্ধার 📥',
+    starred_messages: 'তারকাচিহ্নিত ⭐',
+    language: 'ভাষা 🌐',
+    biometric_prompt: 'বায়োমেট্রিক্স আনলক',
+    biometric_btn: 'আঙুলের ছাপ 👆',
+    enter_pin: 'পিন লিখুন',
+    login: 'লগইন',
+    register: 'নিবন্ধন',
+    username_placeholder: 'ব্যবহারকারী',
+    password_placeholder: 'পাসওয়ার্ড',
+    admin_only_badge: '🔒 অ্যাডমিন শুধুমাত্র',
+    failed_retry: '⚠️ পুনরায় চেষ্টা 🔄'
+  }
+};
+
+const getTranslation = (key, lang = 'en') => {
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  return dict[key] || TRANSLATIONS.en[key] || key;
+};
+
 export default function App() {
   // 🌙 AMOLED Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -208,7 +670,24 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  // 👻 Ghost Mode & Privacy Settings
+  // 🌍 Global Language & i18n State
+  const [appLanguage, setAppLanguage] = useState('en'); // Default: Clean International English
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const t = (k) => getTranslation(k, appLanguage);
+
+  // ⭐ Starred Messages Dedicated Screen State
+  const [showStarredModal, setShowStarredModal] = useState(false);
+
+  // 🔐 Biometric State
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+
+  // 🛡️ Group Admin Controls State
+  const [roomAdminSettings, setRoomAdminSettings] = useState({ adminOnlyPost: false, mutedMembers: [], admins: [] });
+  const [showAdminSettingsModal, setShowAdminSettingsModal] = useState(false);
+
+  // ☁️ Cloud Backup & Vault State
+  const [isCloudBackupLoading, setIsCloudBackupLoading] = useState(false);
+  const [cloudBackupStatus, setCloudBackupStatus] = useState('');
   const [ghostMode, setGhostMode] = useState(false);
   const [stealthRead, setStealthRead] = useState(false);
   const [silentTyping, setSilentTyping] = useState(false);
@@ -577,6 +1056,18 @@ export default function App() {
       try {
         // Run migration before loading session
         await runAppStorageMigration();
+
+        const savedLanguage = await Storage.getItem('@gupshupp_language');
+        if (savedLanguage) setAppLanguage(savedLanguage);
+        else setAppLanguage('en'); // Default to clean international English
+
+        if (LocalAuthentication) {
+          try {
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+            setIsBiometricSupported(hasHardware && isEnrolled);
+          } catch (e) {}
+        }
 
         const savedTheme = await Storage.getItem('@gupshupp_theme');
         if (savedTheme !== null) setIsDarkMode(savedTheme === 'dark');
@@ -967,6 +1458,100 @@ export default function App() {
       setScreen('HOME');
     } else {
       setPinError('गलत पिन! कृपया सही 4-अंकों का पिन दर्ज करें।');
+    }
+  };
+
+  // 🔐 Biometric Hardware Authenticator
+  const handleTriggerBiometrics = async () => {
+    if (!LocalAuthentication) return;
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: t('biometric_prompt'),
+        fallbackLabel: t('enter_pin')
+      });
+      if (result.success) {
+        setScreen('HOME');
+        setEnteredPin('');
+        setPinError('');
+      }
+    } catch (e) {}
+  };
+
+  // 🌍 Language Selector
+  const handleSelectLanguage = async (code) => {
+    setAppLanguage(code);
+    await Storage.setItem('@gupshupp_language', code);
+    setShowLanguageModal(false);
+  };
+
+  // ☁️ Encrypted Cloud Backup & Vault Save
+  const handleCloudBackupSave = async () => {
+    if (!currentUser) return;
+    setIsCloudBackupLoading(true);
+    setCloudBackupStatus('Uploading encrypted vault to cloud...');
+    try {
+      const allSavedData = {
+        theme: await Storage.getItem('@gupshupp_theme'),
+        activeTheme: await Storage.getItem('@gupshupp_active_theme'),
+        language: await Storage.getItem('@gupshupp_language'),
+        pinned: await Storage.getItem('@gupshupp_pinned'),
+        recent: await Storage.getItem('@gupshupp_recent_chats'),
+        user: currentUser,
+        avatar: userAvatar,
+        status: userStatus,
+        backedUpAt: new Date().toISOString()
+      };
+      const encryptedBackupPayload = encryptText(JSON.stringify(allSavedData));
+
+      const res = await fetch(`${BASE_URL}/api/backup/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: currentUser, encryptedBackupPayload })
+      });
+      const data = await res.json();
+      setIsCloudBackupLoading(false);
+      if (data.success) {
+        setCloudBackupStatus('✅ Backup successfully saved to Cloud!');
+      } else {
+        setCloudBackupStatus('❌ Backup failed.');
+      }
+    } catch (e) {
+      setIsCloudBackupLoading(false);
+      setCloudBackupStatus('❌ Network error saving backup.');
+    }
+  };
+
+  // ☁️ Encrypted Cloud Backup Restore
+  const handleCloudBackupRestore = async () => {
+    if (!currentUser) return;
+    setIsCloudBackupLoading(true);
+    setCloudBackupStatus('Retrieving encrypted vault from cloud...');
+    try {
+      const res = await fetch(`${BASE_URL}/api/backup/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: currentUser })
+      });
+      const data = await res.json();
+      setIsCloudBackupLoading(false);
+      if (data.success && data.encryptedPayload) {
+        const decryptedJson = decryptText(data.encryptedPayload);
+        const parsed = JSON.parse(decryptedJson);
+        if (parsed.language) {
+          setAppLanguage(parsed.language);
+          await Storage.setItem('@gupshupp_language', parsed.language);
+        }
+        if (parsed.activeTheme) {
+          setActiveThemeId(parsed.activeTheme);
+          await Storage.setItem('@gupshupp_active_theme', parsed.activeTheme);
+        }
+        setCloudBackupStatus('✅ Backup restored successfully!');
+      } else {
+        setCloudBackupStatus('❌ No backup found to restore.');
+      }
+    } catch (e) {
+      setIsCloudBackupLoading(false);
+      setCloudBackupStatus('❌ Failed to restore backup.');
     }
   };
 
@@ -1559,8 +2144,8 @@ export default function App() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
         <View style={styles.centerContainer}>
           <Text style={styles.lockIconLarge}>🔒</Text>
-          <Text style={[styles.pinLockTitle, { color: theme.text }]}>GupShupp सुरक्षा पिन</Text>
-          <Text style={[styles.pinLockSub, { color: theme.textMuted }]}>ऐप अनलॉक करने के लिए अपना 4-अंकों का पिन दर्ज करें</Text>
+          <Text style={[styles.pinLockTitle, { color: theme.text }]}>{t('app_lock')}</Text>
+          <Text style={[styles.pinLockSub, { color: theme.textMuted }]}>{t('enter_pin')}</Text>
 
           <View style={styles.pinDotsRow}>
             {[0, 1, 2, 3].map((i) => (
@@ -1569,6 +2154,16 @@ export default function App() {
           </View>
 
           {pinError ? <Text style={styles.pinErrorText}>{pinError}</Text> : null}
+
+          {isBiometricSupported && (
+            <TouchableOpacity 
+              style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: theme.surface, borderRadius: 24, borderWidth: 1, borderColor: theme.accentLight }}
+              onPress={handleTriggerBiometrics}
+            >
+              <Text style={{ fontSize: 18, marginRight: 8 }}>👆</Text>
+              <Text style={{ color: theme.accentLight, fontWeight: '700', fontSize: 14 }}>{t('biometric_btn')}</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.numericKeypad}>
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '✓'].map((key, idx) => (
@@ -2164,8 +2759,60 @@ export default function App() {
 
               </View>
 
+              {/* 🌍 Language Selector Card */}
+              <View style={[styles.privacyBox, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 16 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.privacyTitle, { color: theme.text }]}>🌐 {t('language')}</Text>
+                  <Text style={[styles.privacySub, { color: theme.textMuted }]}>{SUPPORTED_LANGUAGES.find(l => l.code === appLanguage)?.label || 'English 🇬🇧'}</Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.pinToggleBtn, { backgroundColor: theme.accent }]}
+                  onPress={() => setShowLanguageModal(true)}
+                >
+                  <Text style={styles.pinToggleBtnText}>Change 🔄</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* ☁️ Cloud Backup & Vault Card */}
+              <View style={[styles.appearanceStudioCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 16 }]}>
+                <Text style={[styles.appearanceSubHeading, { color: theme.text }]}>☁️ {t('cloud_backup')}</Text>
+                <Text style={[styles.privacySub, { color: theme.textMuted, marginTop: 4 }]}>AES-256 Encrypted Cloud Vault (Zero Data Loss)</Text>
+                {cloudBackupStatus ? <Text style={{ color: theme.accentLight, fontSize: 12, marginTop: 6, fontWeight: '700' }}>{cloudBackupStatus}</Text> : null}
+                
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                  <TouchableOpacity 
+                    style={[styles.primaryBtn, { flex: 1, backgroundColor: theme.accentLight }]}
+                    onPress={handleCloudBackupSave}
+                    disabled={isCloudBackupLoading}
+                  >
+                    <Text style={styles.primaryBtnText}>{isCloudBackupLoading ? 'Saving...' : t('backup_now')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.secondaryBtn, { flex: 1, borderColor: theme.accentLight }]}
+                    onPress={handleCloudBackupRestore}
+                    disabled={isCloudBackupLoading}
+                  >
+                    <Text style={[styles.secondaryBtnText, { color: theme.accentLight }]}>{t('restore_now')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* ⭐ Starred Messages Vault Shortcut */}
+              <View style={[styles.privacyBox, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 16 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.privacyTitle, { color: theme.text }]}>⭐ {t('starred_messages')}</Text>
+                  <Text style={[styles.privacySub, { color: theme.textMuted }]}>View all bookmarked messages</Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.pinToggleBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.accent }]}
+                  onPress={() => setShowStarredModal(true)}
+                >
+                  <Text style={[styles.pinToggleBtnText, { color: theme.accent }]}>Open ➔</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity style={[styles.logoutBtnFull, { backgroundColor: '#ef4444', marginTop: 24 }]} onPress={handleLogout}>
-                <Text style={styles.logoutBtnFullText}>लॉगआउट करें (Logout) ➔</Text>
+                <Text style={styles.logoutBtnFullText}>Logout ➔</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -2177,16 +2824,16 @@ export default function App() {
           style={[styles.floatingStatusFab, { backgroundColor: theme.accent }]}
           onPress={() => setShowCreateStoryModal(true)}
         >
-          <Text style={[styles.floatingStatusFabText, { color: '#000000' }]}>✍️ + स्टेटस लगाएं</Text>
+          <Text style={[styles.floatingStatusFabText, { color: '#000000' }]}>✍️ + Status</Text>
         </TouchableOpacity>
 
         {/* 4 Bottom Navigation Tabs - Floating Glass Style */}
         <View style={[styles.neoFloatingNavBar, { backgroundColor: theme.navBg, borderColor: theme.border }]}>
           {[
-            { id: 'CHATS', icon: '💬', label: 'चैट्स' },
-            { id: 'GROUPS', icon: '👥', label: 'ग्रुप्स' },
-            { id: 'CHANNELS', icon: '📢', label: 'चैनल्स' },
-            { id: 'PROFILE', icon: '👤', label: 'प्रोफाइल' }
+            { id: 'CHATS', icon: '💬', label: t('chats') },
+            { id: 'GROUPS', icon: '👥', label: t('groups') },
+            { id: 'CHANNELS', icon: '📢', label: t('channels') },
+            { id: 'PROFILE', icon: '👤', label: t('profile') }
           ].map((tab) => {
             const isActive = bottomNav === tab.id;
             return (
@@ -2933,10 +3580,10 @@ export default function App() {
             </TouchableOpacity>
             <TextInput
               style={[styles.chatInput, { backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }]}
-              placeholder={slowModeCooldown > 0 ? `प्रतीक्षा करें (${slowModeCooldown}s)...` : "मैसेज लिखें या @ai सवाल पूछें..."}
+              placeholder={roomAdminSettings.adminOnlyPost && !roomAdminSettings.admins?.includes(currentUser) ? t('admin_only_badge') : (slowModeCooldown > 0 ? `Wait (${slowModeCooldown}s)...` : t('type_message_placeholder'))}
               placeholderTextColor={theme.textMuted}
               value={message}
-              editable={slowModeCooldown === 0}
+              editable={slowModeCooldown === 0 && !(roomAdminSettings.adminOnlyPost && !roomAdminSettings.admins?.includes(currentUser))}
               onFocus={() => {
                 setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 150);
               }}
@@ -3788,6 +4435,70 @@ export default function App() {
             {activeOneTimePhoto?.image && (
               <Image source={{ uri: activeOneTimePhoto.image }} style={styles.oneTimeFullImage} resizeMode="contain" />
             )}
+          </View>
+        </Modal>
+
+        {/* 🌍 Modal: Global Language Selector (i18n) */}
+        <Modal visible={showLanguageModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, maxHeight: '80%' }]}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>🌐 {t('language')}</Text>
+              <Text style={[styles.modalSub, { color: theme.textMuted }]}>Select your preferred language / भाषा चुनें:</Text>
+
+              <ScrollView style={{ marginVertical: 12 }}>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[
+                      styles.themeChoiceCard,
+                      { backgroundColor: theme.card, borderColor: appLanguage === lang.code ? theme.accentLight : theme.border, marginVertical: 4 }
+                    ]}
+                    onPress={() => handleSelectLanguage(lang.code)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                      <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{lang.label}</Text>
+                      {appLanguage === lang.code && <Text style={{ color: theme.accentLight, fontWeight: '900' }}>Selected ✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TouchableOpacity style={[styles.modalBtnCancel, { backgroundColor: theme.border }]} onPress={() => setShowLanguageModal(false)}>
+                <Text style={[styles.modalBtnCancelText, { color: theme.text }]}>Close ✕</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ⭐ Modal: Starred Messages Dedicated Screen */}
+        <Modal visible={showStarredModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.commentsModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.commentsHeader}>
+                <Text style={[styles.commentsTitle, { color: theme.text }]}>⭐ {t('starred_messages')}</Text>
+                <TouchableOpacity onPress={() => setShowStarredModal(false)}>
+                  <Text style={{ color: theme.accentLight, fontWeight: '900', fontSize: 16 }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.commentsListScroll}>
+                {messages.filter(m => m.starredBy && m.starredBy.includes(currentUser)).length === 0 ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: theme.textMuted, fontSize: 14 }}>No starred messages yet. Bookmark important messages by long-pressing them! ⭐</Text>
+                  </View>
+                ) : (
+                  messages.filter(m => m.starredBy && m.starredBy.includes(currentUser)).map((m, i) => (
+                    <View key={i} style={[styles.commentBubble, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ color: theme.accentLight, fontWeight: '800', fontSize: 12 }}>@{m.sender} in #{m.room}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 10 }}>{m.time}</Text>
+                      </View>
+                      <Text style={{ color: theme.text, fontSize: 14, marginTop: 4 }}>{decryptText(m.text)}</Text>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            </View>
           </View>
         </Modal>
 

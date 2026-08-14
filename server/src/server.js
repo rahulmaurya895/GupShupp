@@ -76,6 +76,9 @@ const stageRoomsMap = new Map(); // room -> Map of username -> { socketId, avata
 const scheduledMessagesStore = new Map(); // msgId -> scheduled msg object
 const channelCommentsStore = new Map(); // postId -> Array of comments
 const miniAppGameStore = new Map(); // roomId -> game state
+const userBackupsStore = new Map(); // username -> { encryptedPayload, updatedAt }
+const roomAdminSettingsStore = new Map(); // room -> { adminOnlyPost: boolean, mutedMembers: Set, admins: Set }
+const chunkedUploadsStore = new Map(); // uploadId -> { chunks: Map, totalChunks, fileName }
 let globalMessageSequenceCounter = 0; // Monotonic Server Sequence Ordering (Clock Drift Immunity)
 
 // ⏱️ Phase 5: 5-Second Scheduled Message Dispatcher
@@ -642,6 +645,74 @@ app.post('/api/refresh-token', async (req, res) => {
     }
 });
 
+// ☁️ Encrypted Cloud Backup Save Route
+app.post('/api/backup/save', async (req, res) => {
+    try {
+        const { username, encryptedBackupPayload } = req.body;
+        if (!username || !encryptedBackupPayload) {
+            return res.status(400).json({ success: false, message: "Username and backup payload required." });
+        }
+        const cleanUser = username.trim().toLowerCase();
+        userBackupsStore.set(cleanUser, {
+            encryptedPayload: encryptedBackupPayload,
+            updatedAt: new Date().toISOString()
+        });
+        console.log(`☁️ [Cloud Backup] Saved encrypted vault for @${cleanUser} (${encryptedBackupPayload.length} bytes)`);
+        res.json({ success: true, message: "Encrypted backup saved successfully!", updatedAt: new Date().toISOString() });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Failed to save cloud backup." });
+    }
+});
+
+// ☁️ Encrypted Cloud Backup Restore Route
+app.post('/api/backup/restore', async (req, res) => {
+    try {
+        const { username } = req.body;
+        if (!username) return res.status(400).json({ success: false, message: "Username required." });
+        const cleanUser = username.trim().toLowerCase();
+        const backup = userBackupsStore.get(cleanUser);
+        if (!backup) {
+            return res.status(404).json({ success: false, message: "No cloud backup found for this account." });
+        }
+        res.json({ 
+            success: true, 
+            encryptedPayload: backup.encryptedPayload, 
+            updatedAt: backup.updatedAt 
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Failed to restore cloud backup." });
+    }
+});
+
+// 🚀 Scalable Chunked Multipart Media Upload Route (500MB+ Support)
+app.post('/api/upload/chunk', async (req, res) => {
+    try {
+        const { uploadId, chunkIndex, totalChunks, data, fileName } = req.body;
+        if (!uploadId || chunkIndex === undefined || !totalChunks || !data) {
+            return res.status(400).json({ success: false, message: "Missing chunk upload parameters." });
+        }
+        if (!chunkedUploadsStore.has(uploadId)) {
+            chunkedUploadsStore.set(uploadId, { chunks: new Map(), totalChunks, fileName: fileName || 'file' });
+        }
+        const uploadObj = chunkedUploadsStore.get(uploadId);
+        uploadObj.chunks.set(chunkIndex, data);
+
+        if (uploadObj.chunks.size === totalChunks) {
+            // All chunks received, assemble file
+            let fullData = '';
+            for (let i = 0; i < totalChunks; i++) {
+                fullData += uploadObj.chunks.get(i) || '';
+            }
+            chunkedUploadsStore.delete(uploadId);
+            console.log(`🚀 [Chunked Upload Complete] Assembled file ${uploadObj.fileName} (${fullData.length} chars)`);
+            return res.json({ success: true, complete: true, fileUrl: fullData, fileName: uploadObj.fileName });
+        }
+        res.json({ success: true, complete: false, receivedChunks: uploadObj.chunks.size, totalChunks });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Chunk upload failed." });
+    }
+});
+
 // --- SOCKET.IO REAL-TIME SUPER-APP ENGINE ---
 io.on('connection', (socket) => {
     let currentRoom = null;
@@ -874,6 +945,20 @@ io.on('connection', (socket) => {
         const cleanRoom = sanitizeIdentifier(room, 'general');
         const cleanSender = sanitizeIdentifier(sender, 'user');
         const cleanText = sanitizeInputText(text);
+
+        // 🛡️ Group Admin Controls & Mute Enforcement Guard
+        const roomSettings = roomAdminSettingsStore.get(cleanRoom);
+        if (roomSettings) {
+            if (roomSettings.mutedMembers && roomSettings.mutedMembers.has(cleanSender.toLowerCase())) {
+                socket.emit('error_alert', { message: 'You have been muted by an admin in this group.' });
+                return;
+            }
+            if (roomSettings.adminOnlyPost && roomSettings.admins && !roomSettings.admins.has(cleanSender.toLowerCase())) {
+                socket.emit('error_alert', { message: 'Only Admins can send messages in this group.' });
+                return;
+            }
+        }
+
         const messageTime = msgData.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const expiresAt = disappearingTtl > 0 ? new Date(Date.now() + disappearingTtl) : null;
 
@@ -1231,6 +1316,36 @@ io.on('connection', (socket) => {
     });
     socket.on('webrtc_ice_candidate', ({ targetUser, fromUser, candidate }) => {
         io.emit('webrtc_ice_candidate_received', { targetUser, fromUser, candidate });
+    });
+
+    // 10B. Group Admin Management & Moderation Controls
+    socket.on('set_room_admin_settings', ({ room, adminOnlyPost, mutedMembers, admins }) => {
+        const cleanRoom = sanitizeIdentifier(room, 'general');
+        const current = roomAdminSettingsStore.get(cleanRoom) || { adminOnlyPost: false, mutedMembers: new Set(), admins: new Set() };
+        if (adminOnlyPost !== undefined) current.adminOnlyPost = !!adminOnlyPost;
+        if (Array.isArray(mutedMembers)) current.mutedMembers = new Set(mutedMembers.map(m => (m || '').toLowerCase()));
+        if (Array.isArray(admins)) current.admins = new Set(admins.map(a => (a || '').toLowerCase()));
+        roomAdminSettingsStore.set(cleanRoom, current);
+        io.to(cleanRoom).emit('room_admin_settings_updated', {
+            room: cleanRoom,
+            adminOnlyPost: current.adminOnlyPost,
+            mutedMembers: Array.from(current.mutedMembers),
+            admins: Array.from(current.admins)
+        });
+        console.log(`🛡️ [Room Admin Settings Updated] #${cleanRoom}: adminOnly=${current.adminOnlyPost}, muted=${current.mutedMembers.size}`);
+    });
+
+    socket.on('get_room_admin_settings', ({ room }, callback) => {
+        const cleanRoom = sanitizeIdentifier(room, 'general');
+        const current = roomAdminSettingsStore.get(cleanRoom) || { adminOnlyPost: false, mutedMembers: new Set(), admins: new Set() };
+        const data = {
+            room: cleanRoom,
+            adminOnlyPost: current.adminOnlyPost,
+            mutedMembers: Array.from(current.mutedMembers),
+            admins: Array.from(current.admins)
+        };
+        if (typeof callback === 'function') callback(data);
+        else socket.emit('room_admin_settings_updated', data);
     });
 
     // 11. Push Tokens
