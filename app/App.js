@@ -2349,7 +2349,9 @@ export default function App() {
               );
             }}
           />
-        )}
+        </View>
+      </ImageBackground>
+    )}
 
         {/* AI Smart Replies Chips */}
         {aiSmartReplies.length > 0 && (
