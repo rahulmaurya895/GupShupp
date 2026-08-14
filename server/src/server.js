@@ -80,18 +80,18 @@ const userPrivacySettingsCache = new Map(); // username -> privacySettings
 
 function isUserGhost(username) {
     if (!username) return false;
-    const normalized = username.toLowerCase();
+    const normalized = username.trim().toLowerCase();
     const cached = userPrivacySettingsCache.get(normalized);
-    if (cached?.ghostMode || cached?.stealthReadReceipts) return true;
+    if (cached?.ghostMode || cached?.stealthReadReceipts || cached?.silentTyping) return true;
     const userObj = memoryUsers.get(normalized);
-    if (userObj?.privacySettings?.ghostMode || userObj?.privacySettings?.stealthReadReceipts) return true;
+    if (userObj?.privacySettings?.ghostMode || userObj?.privacySettings?.stealthReadReceipts || userObj?.privacySettings?.silentTyping) return true;
     return false;
 }
 
 function broadcastOnlineUsers() {
     const activeUsers = Array.from(globalOnlineUsers.values()).filter(Boolean);
     const visibleUsers = activeUsers.filter(u => {
-        if (userPrivacySettingsCache.get(u)?.ghostMode) return false;
+        if (isUserGhost(u)) return false;
         const userObj = memoryUsers.get(u);
         return !userObj?.privacySettings?.ghostMode;
     });
@@ -945,7 +945,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('typing_stop', ({ room, username }) => {
-        if (room) socket.to(room).emit('user_typing', { username, isTyping: false });
+        if (room && !isUserGhost(username || currentUsername)) {
+            socket.to(room).emit('user_typing', { username, isTyping: false });
+        }
     });
 
     // 10. WebRTC Calling
