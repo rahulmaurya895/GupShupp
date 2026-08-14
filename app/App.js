@@ -1386,8 +1386,15 @@ export default function App() {
     setPollOptions(['Option 1', 'Option 2']);
   };
 
-  // 📊 Cast Poll Vote
+  // 📊 Cast Poll Vote (with 300ms Debounce & Race Condition Guard)
+  const lastVoteTapTimeRef = useRef(0);
   const handleCastVote = (messageId, optionId) => {
+    const now = Date.now();
+    if (now - lastVoteTapTimeRef.current < 300) {
+      return;
+    }
+    lastVoteTapTimeRef.current = now;
+
     socket.emit('cast_poll_vote', {
       room: activeRoom,
       messageId,

@@ -124,6 +124,21 @@ function sanitizeIdentifier(input, fallback = 'general') {
     return cleaned || fallback;
 }
 
+// ⚡ Idempotency, Concurrency & Race Condition Deduplication
+const processedMessageIdSet = new Set();
+const userVoteThrottleMap = new Map(); // key: `user_msgId` -> timestamp
+
+function isDuplicateMessage(msgId) {
+    if (!msgId) return false;
+    if (processedMessageIdSet.has(msgId)) return true;
+    processedMessageIdSet.add(msgId);
+    if (processedMessageIdSet.size > 10000) {
+        const firstKey = processedMessageIdSet.values().next().value;
+        processedMessageIdSet.delete(firstKey);
+    }
+    return false;
+}
+
 const userPrivacySettingsCache = new Map(); // username -> privacySettings
 
 function isUserGhost(username) {
@@ -784,11 +799,16 @@ io.on('connection', (socket) => {
         const { room, sender, text, type, image, audio, document, pollData, replyTo, isAi, disappearingTtl } = msgData;
         if (!room) return;
 
+        const messageId = msgData._id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        // 🛑 Concurrency & Race Condition Guard: Drop duplicate network packet emissions
+        if (isDuplicateMessage(messageId)) {
+            return;
+        }
+
         const cleanRoom = sanitizeIdentifier(room, 'general');
         const cleanSender = sanitizeIdentifier(sender, 'user');
         const cleanText = sanitizeInputText(text);
         const messageTime = msgData.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const messageId = msgData._id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         const expiresAt = disappearingTtl > 0 ? new Date(Date.now() + disappearingTtl) : null;
 
         // Auto-detect Link Preview (with URL sanitation)
@@ -947,9 +967,18 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 3. In-Chat Polls & Real-Time Voting Engine
+    // 3. In-Chat Polls & Real-Time Voting Engine (With Race Condition Lock)
     socket.on('cast_poll_vote', ({ room, messageId, optionId, username }) => {
         if (!room || !messageId || optionId === undefined || !username) return;
+
+        // 🛑 Race Condition Lock: Prevent duplicate concurrent votes in same 200ms
+        const voteLockKey = `${username}_${messageId}`;
+        const lastVoteTime = userVoteThrottleMap.get(voteLockKey) || 0;
+        const now = Date.now();
+        if (now - lastVoteTime < 200) {
+            return;
+        }
+        userVoteThrottleMap.set(voteLockKey, now);
 
         let msg = messageStore.get(messageId);
         if (msg && msg.pollData) {
