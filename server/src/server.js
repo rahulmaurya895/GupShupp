@@ -1193,16 +1193,8 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-
-if (process.env.CLUSTER_MODE === 'true') {
-    // In cluster mode with @socket.io/sticky, the master process manages port 3000
-    server.listen(0, () => {
-        console.log(`🚀 [Worker PID ${process.pid}] Online & Ready for Oracle 3 OCPU Core`);
-    });
-} else {
-    server.listen(PORT, () => {
-        console.log(`==========================================`);
-        console.log(`🚀 GupShupp ENTERPRISE PRO SERVER LIVE on Port ${PORT}`);
-        console.log(`==========================================`);
-    });
-}
+server.listen(PORT, () => {
+    console.log(`==========================================`);
+    console.log(`🚀 GupShupp ENTERPRISE PRO SERVER LIVE on Port ${PORT} [PID: ${process.pid}]`);
+    console.log(`==========================================`);
+});
