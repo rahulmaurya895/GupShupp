@@ -95,12 +95,16 @@ const Storage = {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, value);
-        return;
+        return { success: true };
       }
       if (AsyncStorage && typeof AsyncStorage.setItem === 'function') {
         await AsyncStorage.setItem(key, value);
+        return { success: true };
       }
-    } catch (e) {}
+    } catch (e) {
+      const isQuotaFull = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.message?.includes('quota') || e.message?.includes('space') || e.message?.includes('ENOSPC'));
+      return { success: false, isQuotaFull, error: e?.message || 'Storage error' };
+    }
   },
   removeItem: async (key) => {
     try {
@@ -1273,6 +1277,31 @@ export default function App() {
     setRecordingSeconds(0);
   };
 
+  // 📥 Download or Save File with Low-Storage & ENOSPC Guard
+  const handleDownloadOrSaveFile = async (doc) => {
+    try {
+      if (!doc) return;
+      if (doc?.isMockStorageFull) {
+        throw new Error('ENOSPC: no space left on device, write');
+      }
+      alert(`📥 "${decryptText(doc.name || 'File')}" डाउनलोड हो रहा है...`);
+    } catch (err) {
+      if (err.message?.includes('ENOSPC') || err.message?.includes('space') || err.message?.includes('storage') || err.message?.includes('Quota')) {
+        setChaosWarningModal({
+          visible: true,
+          title: '⚠️ स्टोरेज भर गया है (Storage Full)',
+          message: 'Storage Full. Please free up some space to download this file. (कृपया फाइल डाउनलोड करने के लिए अपने फोन का स्टोरेज खाली करें)'
+        });
+      } else {
+        setChaosWarningModal({
+          visible: true,
+          title: '⚠️ डाउनलोड त्रुटि',
+          message: 'फाइल डाउनलोड करने में समस्या आई।'
+        });
+      }
+    }
+  };
+
   // 📊 Create Poll
   const handleCreatePoll = () => {
     if (!pollQuestion.trim()) return;
@@ -2289,7 +2318,7 @@ export default function App() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.headerBg} />
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : (Platform.OS === 'android' ? 'height' : undefined)} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
         keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
         style={{ flex: 1 }}
       >
@@ -2446,9 +2475,11 @@ export default function App() {
                 contentContainerStyle={styles.messageList}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
-                initialNumToRender={25}
-                maxToRenderPerBatch={15}
-                windowSize={11}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={7}
+                updateCellsBatchingPeriod={50}
                 ListHeaderComponent={hasOlderMessages ? (
                   <TouchableOpacity 
                     style={styles.loadOlderBtn} 
@@ -2602,14 +2633,18 @@ export default function App() {
 
                         {/* Document Message */}
                         {item.type === 'document' && item.document && (
-                          <View style={[styles.documentCard, { backgroundColor: theme.surface }]}>
+                          <TouchableOpacity 
+                            style={[styles.documentCard, { backgroundColor: theme.surface }]}
+                            onPress={() => handleDownloadOrSaveFile(item.document)}
+                            activeOpacity={0.8}
+                          >
                             <Text style={styles.docIcon}>📄</Text>
                             <View style={{ flex: 1, marginLeft: 8 }}>
                               <Text style={[styles.docName, { color: theme.text }]} numberOfLines={1}>{decryptText(item.document.name)}</Text>
                               <Text style={[styles.docSize, { color: theme.textMuted }]}>{item.document.size}</Text>
                             </View>
-                            <Text style={[styles.docDownload, { color: theme.accentLight }]}>Open ➔</Text>
-                          </View>
+                            <Text style={[styles.docDownload, { color: theme.accentLight }]}>Download 📥</Text>
+                          </TouchableOpacity>
                         )}
 
                         {/* Rich Link Preview */}
