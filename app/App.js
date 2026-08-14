@@ -3,7 +3,7 @@ import {
   StyleSheet, Text, View, TextInput, TouchableOpacity, 
   FlatList, SafeAreaView, StatusBar, KeyboardAvoidingView, 
   Platform, ActivityIndicator, Image, ImageBackground, Modal, ScrollView, Animated,
-  Keyboard, Linking
+  Keyboard, Linking, BackHandler
 } from 'react-native';
 import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -874,6 +874,80 @@ export default function App() {
     setScreen('AUTH');
   };
 
+  // 🔙 Universal Back Navigation Handler (Android Hardware Button, Web Popstate, Header Back)
+  const handleBackNavigation = () => {
+    // 1. Close any open active modals first
+    if (activeOneTimePhoto) { setActiveOneTimePhoto(null); return true; }
+    if (showMiniAppModal) { setShowMiniAppModal(false); return true; }
+    if (showSendOptionsModal) { setShowSendOptionsModal(false); return true; }
+    if (showChannelCommentsModal) { setShowChannelCommentsModal(false); return true; }
+    if (showSharedVaultModal) { setShowSharedVaultModal(false); return true; }
+    if (showStageRoomModal) { setShowStageRoomModal(false); return true; }
+    if (showQrLoginModal) { setShowQrLoginModal(false); return true; }
+    if (showCreateStoryModal) { setShowCreateStoryModal(false); return true; }
+    if (activeStoryModal) { setActiveStoryModal(null); return true; }
+    if (showStoryViewers) { setShowStoryViewers(false); return true; }
+    if (showCreateChannelModal) { setShowCreateChannelModal(false); return true; }
+    if (selectedMessageForAction) { setSelectedMessageForAction(null); return true; }
+    if (selectedImageModal) { setSelectedImageModal(null); return true; }
+    if (showPollModal) { setShowPollModal(false); return true; }
+    if (showSummaryModal) { setShowSummaryModal(false); return true; }
+    if (showDisappearingModal) { setShowDisappearingModal(false); return true; }
+    if (showNewDmModal) { setShowNewDmModal(false); return true; }
+    if (showNewGroupModal) { setShowNewGroupModal(false); return true; }
+    if (incomingCall) { setIncomingCall(null); return true; }
+    if (isSearchActive) { setIsSearchActive(false); setSearchQuery(''); return true; }
+
+    // 2. If inside CHAT screen, smoothly transition back to HOME
+    if (screen === 'CHAT') {
+      socket.emit('leave_room', { room: activeRoom, username: currentUser });
+      setScreen('HOME');
+      return true;
+    }
+
+    // 3. If inside HOME and on non-default bottom nav, return to CHATS tab
+    if (screen === 'HOME' && bottomNav !== 'CHATS') {
+      setBottomNav('CHATS');
+      return true;
+    }
+
+    return false;
+  };
+
+  // Helper to open chat with Web Browser History Support
+  const navigateToChat = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try { window.history.pushState({ screen: 'CHAT' }, ''); } catch (e) {}
+    }
+    setScreen('CHAT');
+  };
+
+  // Android & Web Back Button Event Listeners
+  useEffect(() => {
+    const backHandlerSubscription = BackHandler.addEventListener('hardwareBackPress', handleBackNavigation);
+
+    const onPopState = () => {
+      handleBackNavigation();
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.addEventListener('popstate', onPopState);
+    }
+
+    return () => {
+      backHandlerSubscription.remove();
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.removeEventListener('popstate', onPopState);
+      }
+    };
+  }, [
+    screen, bottomNav, activeRoom, currentUser, activeOneTimePhoto, showMiniAppModal, 
+    showSendOptionsModal, showChannelCommentsModal, showSharedVaultModal, showStageRoomModal, 
+    showQrLoginModal, showCreateStoryModal, activeStoryModal, showStoryViewers, 
+    showCreateChannelModal, selectedMessageForAction, selectedImageModal, showPollModal, 
+    showSummaryModal, showDisappearingModal, showNewDmModal, showNewGroupModal, incomingCall, isSearchActive
+  ]);
+
   // Join 1-on-1 Chat
   const startDirectChat = (otherUser) => {
     if (!currentUser || !otherUser) return;
@@ -888,7 +962,7 @@ export default function App() {
     setAiSmartReplies([]);
     setIsSearchActive(false);
     setSearchQuery('');
-    setScreen('CHAT');
+    navigateToChat();
     socket.emit('join_room', { room: dmRoom, username: currentUser });
   };
 
@@ -904,7 +978,7 @@ export default function App() {
     setAiSmartReplies([]);
     setIsSearchActive(false);
     setSearchQuery('');
-    setScreen('CHAT');
+    navigateToChat();
     socket.emit('join_room', { room: cleanRoom, username: currentUser });
   };
 
@@ -1409,7 +1483,7 @@ export default function App() {
                   setAiSmartReplies([]);
                   setIsSearchActive(false);
                   setSearchQuery('');
-                  setScreen('CHAT');
+                  navigateToChat();
                   socket.emit('join_room', { room: savedRoom, username: currentUser });
                 }}
               >
@@ -2014,8 +2088,12 @@ export default function App() {
         
         {/* Chat Header */}
         <View style={[styles.chatHeader, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => { socket.emit('leave_room', { room: activeRoom, username: currentUser }); setScreen('HOME'); }}>
-            <Text style={[styles.backBtnText, { color: theme.accentLight }]}>‹</Text>
+          <TouchableOpacity 
+            style={[styles.backBtn, { backgroundColor: 'rgba(255,255,255,0.06)' }]} 
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            onPress={handleBackNavigation}
+          >
+            <Text style={[styles.backBtnText, { color: theme.accent }]}>←</Text>
           </TouchableOpacity>
           <View style={styles.chatTitleBlock}>
             <Text style={[styles.chatTitleText, { color: theme.text }]}>{chatTitle}</Text>
@@ -3423,8 +3501,8 @@ const styles = StyleSheet.create({
 
   // Chat Screen Styles
   chatHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1 },
-  backBtn: { paddingHorizontal: 8, paddingVertical: 4 },
-  backBtnText: { fontSize: 28, fontWeight: '900', lineHeight: 28 },
+  backBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
+  backBtnText: { fontSize: 22, fontWeight: '900' },
   chatTitleBlock: { flex: 1, marginLeft: 6 },
   chatTitleText: { fontSize: 16, fontWeight: '800' },
   chatSubTitleRow: { flexDirection: 'row', alignItems: 'center' },
