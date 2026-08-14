@@ -1267,6 +1267,22 @@ export default function App() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
+  // 🔄 Resumable / Tap-to-Retry Failed Media/Message Handler
+  const retryFailedMessage = (msgItem) => {
+    if (!msgItem) return;
+    const updated = { 
+      ...msgItem, 
+      status: isConnected ? 'sent' : 'sending', 
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    };
+    setMessages(prev => prev.map(m => m._id === msgItem._id ? updated : m));
+    if (isConnected) {
+      socket.emit('send_message', updated);
+    } else {
+      setOfflineQueue(prev => [...prev.filter(m => m._id !== msgItem._id), updated]);
+    }
+  };
+
   // Media Picker (Lossless HD & 1-Time Self-Destruct View with Size Limit Guard)
   const pickAndSendImage = async () => {
     try {
@@ -2768,14 +2784,24 @@ export default function App() {
                       </View>
                     )}
 
+                    {/* Failed Upload / Resumable Retry Tap Button */}
+                    {isMine && item.status === 'failed' && (
+                      <TouchableOpacity 
+                        style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 2, paddingVertical: 3, paddingHorizontal: 8, backgroundColor: 'rgba(239, 68, 68, 0.15)', borderRadius: 6 }}
+                        onPress={() => retryFailedMessage(item)}
+                      >
+                        <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>⚠️ अपलोड विफल • दोबारा भेजें (Tap to Retry 🔄)</Text>
+                      </TouchableOpacity>
+                    )}
+
                     {/* Meta Row: Lock + Star + Time + Double Ticks */}
                     <View style={styles.metaRow}>
                       {isStarred && <Text style={styles.starIcon}>⭐</Text>}
                       <Text style={[styles.lockIcon, { color: theme.textMuted }]}>🔒</Text>
                       <Text style={[styles.timestamp, { color: theme.textMuted }]}>{item.time}</Text>
                       {isMine && (
-                        <Text style={[styles.tickIcon, item.status === 'sending' ? { color: '#fbbf24', fontSize: 10 } : (item.status === 'read' ? { color: '#38bdf8' } : { color: theme.textMuted })]}>
-                          {item.status === 'sending' ? '🕒' : (item.status === 'read' ? '✓✓' : (item.status === 'delivered' ? '✓✓' : '✓'))}
+                        <Text style={[styles.tickIcon, item.status === 'failed' ? { color: '#ef4444', fontSize: 11 } : (item.status === 'sending' ? { color: '#fbbf24', fontSize: 10 } : (item.status === 'read' ? { color: '#38bdf8' } : { color: theme.textMuted }))]}>
+                          {item.status === 'failed' ? '❌' : (item.status === 'sending' ? '🕒' : (item.status === 'read' ? '✓✓' : (item.status === 'delivered' ? '✓✓' : '✓')))}
                         </Text>
                       )}
                     </View>
