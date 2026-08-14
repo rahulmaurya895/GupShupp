@@ -76,9 +76,22 @@ setInterval(() => {
     }
 }, 5000);
 
+const userPrivacySettingsCache = new Map(); // username -> privacySettings
+
+function isUserGhost(username) {
+    if (!username) return false;
+    const normalized = username.toLowerCase();
+    const cached = userPrivacySettingsCache.get(normalized);
+    if (cached?.ghostMode || cached?.stealthReadReceipts) return true;
+    const userObj = memoryUsers.get(normalized);
+    if (userObj?.privacySettings?.ghostMode || userObj?.privacySettings?.stealthReadReceipts) return true;
+    return false;
+}
+
 function broadcastOnlineUsers() {
     const activeUsers = Array.from(globalOnlineUsers.values()).filter(Boolean);
     const visibleUsers = activeUsers.filter(u => {
+        if (userPrivacySettingsCache.get(u)?.ghostMode) return false;
         const userObj = memoryUsers.get(u);
         return !userObj?.privacySettings?.ghostMode;
     });
@@ -532,13 +545,20 @@ io.on('connection', (socket) => {
         if (username) {
             const normalized = username.trim().toLowerCase();
             currentUsername = normalized;
-            if (!privacySettings?.ghostMode) {
+            if (privacySettings) {
+                userPrivacySettingsCache.set(normalized, privacySettings);
+                if (memoryUsers.has(normalized)) {
+                    const u = memoryUsers.get(normalized);
+                    u.privacySettings = privacySettings;
+                    memoryUsers.set(normalized, u);
+                }
+            }
+            if (!privacySettings?.ghostMode && !isUserGhost(normalized)) {
                 globalOnlineUsers.set(socket.id, normalized);
-                broadcastOnlineUsers();
             } else {
                 globalOnlineUsers.delete(socket.id);
-                broadcastOnlineUsers();
             }
+            broadcastOnlineUsers();
         }
     });
 
@@ -549,6 +569,9 @@ io.on('connection', (socket) => {
     // Profile & Privacy Settings Update
     socket.on('update_profile', async ({ username, avatar, status, pin, privacySettings, aiAutoResponder, pinnedChats }, callback) => {
         const normalized = (username || '').toLowerCase();
+        if (privacySettings) {
+            userPrivacySettingsCache.set(normalized, privacySettings);
+        }
         if (mongoose.connection.readyState === 1) {
             await User.findOneAndUpdate({ username: normalized }, { avatar, status, pin, privacySettings, aiAutoResponder, pinnedChats });
         } else if (memoryUsers.has(normalized)) {
@@ -561,7 +584,7 @@ io.on('connection', (socket) => {
             if (pinnedChats) u.pinnedChats = pinnedChats;
             memoryUsers.set(normalized, u);
         }
-        if (privacySettings?.ghostMode) {
+        if (privacySettings?.ghostMode || isUserGhost(normalized)) {
             globalOnlineUsers.delete(socket.id);
         } else {
             globalOnlineUsers.set(socket.id, normalized);
@@ -595,8 +618,10 @@ io.on('connection', (socket) => {
             socket.emit('load_history', []);
         }
 
-        // Notify delivery
-        socket.to(room).emit('messages_read', { room, reader: currentUsername });
+        // Notify delivery if NOT in ghost / stealth mode
+        if (!isUserGhost(currentUsername)) {
+            socket.to(room).emit('messages_read', { room, reader: currentUsername });
+        }
     });
 
     // 2. Send Super Message (Text, Image, Audio, Doc, Poll, AI)
@@ -849,9 +874,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 5. Read Receipts (Stealth Mode check)
+    // 5. Read Receipts (Stealth & Ghost Mode check)
     socket.on('mark_as_read', ({ room, username, isStealth }) => {
-        if (!room || !username || isStealth) return;
+        if (!room || !username || isStealth || isUserGhost(username)) return;
         socket.to(room).emit('messages_read', { room, reader: username });
         if (mongoose.connection.readyState === 1) {
             Message.updateMany({ room, sender: { $ne: username } }, { $addToSet: { readBy: username }, status: 'read' })
@@ -901,9 +926,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 9. Typing Indicators (Silent Typing check)
+    // 9. Typing Indicators (Silent & Ghost Mode check)
     socket.on('typing_start', ({ room, username, isSilent }) => {
-        if (room && !isSilent) socket.to(room).emit('user_typing', { username, isTyping: true });
+        if (room && !isSilent && !isUserGhost(username || currentUsername)) {
+            socket.to(room).emit('user_typing', { username, isTyping: true });
+        }
     });
 
     socket.on('typing_stop', ({ room, username }) => {
