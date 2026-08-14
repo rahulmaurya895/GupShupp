@@ -223,21 +223,25 @@ try {
     console.error("Gemini initialization error:", e.message);
 }
 
-// AI Functions Powered by Gemini 2.5
+// AI Functions Powered by Gemini 2.5 (Fast & Lightweight)
 async function generateAiResponse(prompt, sender) {
     const cleanPrompt = prompt.replace(/^@ai\s*/i, '').trim();
     if (!cleanPrompt) return `नमस्ते ${sender}! मैं GupShupp AI हूँ। आप मुझसे कोई भी सवाल पूछ सकते हैं!`;
 
     if (geminiClient) {
         try {
-            const systemPrompt = `You are GupShupp AI, a friendly, ultra-intelligent AI assistant in the Indian chat app 'GupShupp'. Reply concisely, helpfully, and naturally in the language user asks (Hindi, Hinglish, or English). Answer: "${cleanPrompt}" from user "${sender}".`;
-            const response = await geminiClient.models.generateContent({
+            const systemPrompt = `You are GupShupp AI assistant. Reply concisely (max 2-3 short sentences) in Hinglish/Hindi/English. Query from ${sender}: "${cleanPrompt}".`;
+            const apiCall = geminiClient.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: systemPrompt
             });
+            const response = await Promise.race([
+                apiCall,
+                new Promise((_, reject) => setTimeout(() => reject(new Error("AI_TIMEOUT")), 5000))
+            ]);
             if (response && response.text) return response.text.trim();
         } catch (apiErr) {
-            console.error("Google Gemini API Error:", apiErr.message);
+            console.error("Google Gemini API Error/Timeout:", apiErr.message);
         }
     }
     return `🤖 [GupShupp AI]: नमस्ते ${sender}! आपकी क्वेरी "${cleanPrompt}" प्रोसेस हुई।`;
@@ -250,24 +254,28 @@ async function generateSpecializedBotResponse(botType, prompt, sender) {
         try {
             let systemPrompt = '';
             if (botType === '@coder') {
-                systemPrompt = `You are @coder, an elite Senior Software Architect & Coding Mentor inside GupShupp. Write clean, formatted code blocks with brief educational explanations in Hinglish/English. Query from ${sender}: "${cleanPrompt}".`;
+                systemPrompt = `You are @coder, an elite Senior Developer. Provide a clean, short code snippet with 1-line explanation (max 5 lines total) in Hinglish. Query from ${sender}: "${cleanPrompt}".`;
             } else if (botType === '@meme') {
-                systemPrompt = `You are @meme, a hilarious Indian Standup Comedian and Meme Lord. Generate witty, viral Hinglish punchlines, jokes, and funny Bollywood meme references related to: "${cleanPrompt}" for user ${sender}.`;
+                systemPrompt = `You are @meme, an Indian Standup Comedian. Give 1 sharp witty viral Hinglish punchline or meme joke on: "${cleanPrompt}".`;
             } else if (botType === '@news') {
-                systemPrompt = `You are @news, an ultra-fast news anchor. Give a sharp 3-bullet point news summary in Hindi/English on: "${cleanPrompt}".`;
+                systemPrompt = `You are @news, a fast news anchor. Give 2 sharp bullet points in Hindi/English on: "${cleanPrompt}".`;
             } else if (botType === '@roast') {
-                systemPrompt = `You are @roast, a witty, playful roast comedian. Deliver a hilarious, light-hearted roast of ${sender} on topic: "${cleanPrompt}" (keep it fun, friendly, and clean).`;
+                systemPrompt = `You are @roast. Give 1 hilarious, playful, clean roast punchline of ${sender} on: "${cleanPrompt}".`;
             } else {
-                systemPrompt = `You are GupShupp AI assistant. Answer concisely: "${cleanPrompt}" from ${sender}.`;
+                systemPrompt = `You are GupShupp AI assistant. Reply in 1-2 concise sentences to "${cleanPrompt}".`;
             }
 
-            const response = await geminiClient.models.generateContent({
+            const apiCall = geminiClient.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: systemPrompt
             });
+            const response = await Promise.race([
+                apiCall,
+                new Promise((_, reject) => setTimeout(() => reject(new Error("AI_TIMEOUT")), 5000))
+            ]);
             if (response && response.text) return response.text.trim();
         } catch (e) {
-            console.error("Specialized Bot Error:", e.message);
+            console.error("Specialized Bot Error/Timeout:", e.message);
         }
     }
     return `[${botType}]: नमस्ते @${sender}! आपकी क्वेरी "${cleanPrompt}" प्रोसेस हुई।`;

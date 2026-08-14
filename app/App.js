@@ -70,8 +70,11 @@ const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling'],
   autoConnect: false,
   reconnection: true,
-  reconnectionAttempts: 10,
-  reconnectionDelay: 1000
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  randomizationFactor: 0.5,
+  timeout: 10000
 });
 
 // Universal Safe Storage Helper
@@ -235,6 +238,8 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnectedAlertVisible, setIsReconnectedAlertVisible] = useState(false);
+  const [offlineQueue, setOfflineQueue] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [activeMembersCount, setActiveMembersCount] = useState(1);
   const [typingUser, setTypingUser] = useState('');
@@ -558,6 +563,25 @@ export default function App() {
 
     socket.on('connect', () => {
       setIsConnected(true);
+      setIsReconnectedAlertVisible(true);
+      setTimeout(() => setIsReconnectedAlertVisible(false), 2500);
+
+      // Smooth Auto-rejoin active chat room on reconnect
+      if (activeRoom && currentUser) {
+        socket.emit('join_room', { room: activeRoom, username: currentUser });
+      }
+
+      // Flush Offline Queued Outbox Messages
+      setOfflineQueue((prevQueue) => {
+        if (prevQueue.length > 0) {
+          prevQueue.forEach((msg) => {
+            socket.emit('send_message', msg);
+          });
+          setMessages((prev) => prev.map(m => m.status === 'sending' ? { ...m, status: 'sent' } : m));
+        }
+        return [];
+      });
+
       if (currentUser) {
         socket.emit('set_user_presence', { 
           username: currentUser, 
@@ -574,7 +598,9 @@ export default function App() {
       socket.emit('get_active_stories');
     });
 
-    socket.on('disconnect', () => setIsConnected(false));
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+    });
 
     socket.on('receive_message', (data) => {
       setMessages((prev) => [...prev, data]);
@@ -1032,7 +1058,7 @@ export default function App() {
     if (type === 'text' && !message.trim()) return;
 
     const messageTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const isAiTrigger = type === 'text' && message.trim().startsWith('@ai');
+    const isAiTrigger = type === 'text' && /^(@ai|@coder|@meme|@news|@roast)\b/i.test(message.trim());
     const processedText = isAiTrigger ? message : encryptText(message);
     const msgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
@@ -1061,8 +1087,14 @@ export default function App() {
       time: messageTime
     };
 
-    setMessages((prev) => [...prev, newMsgData]);
-    socket.emit('send_message', newMsgData);
+    if (!isConnected) {
+      newMsgData.status = 'sending';
+      setMessages((prev) => [...prev, newMsgData]);
+      setOfflineQueue((prev) => [...prev, newMsgData]);
+    } else {
+      setMessages((prev) => [...prev, newMsgData]);
+      socket.emit('send_message', newMsgData);
+    }
 
     setMessage('');
     setReplyingToMessage(null);
@@ -1453,6 +1485,18 @@ export default function App() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* 🌐 Real-Time Ambient Connection Status Banner */}
+        {!isConnected && (
+          <View style={styles.offlineStatusBar}>
+            <Text style={styles.offlineStatusText}>⚠️ नेटवर्क कनेक्शन टूट गया है • ऑटो-रीकनेक्ट चालू है...</Text>
+          </View>
+        )}
+        {isReconnectedAlertVisible && isConnected && (
+          <View style={[styles.offlineStatusBar, { backgroundColor: '#059669' }]}>
+            <Text style={styles.offlineStatusText}>🟢 पुनः कनेक्ट हुआ! सभी संदेश सिंक हैं ✅</Text>
+          </View>
+        )}
 
         {/* 🎬 24h Ephemeral Stories / Status Tray */}
         <View style={[styles.storiesContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
@@ -2197,6 +2241,18 @@ export default function App() {
           </View>
         </View>
 
+        {/* 🌐 Real-Time Ambient Connection Status Banner */}
+        {!isConnected && (
+          <View style={styles.offlineStatusBar}>
+            <Text style={styles.offlineStatusText}>⚠️ नेटवर्क कनेक्शन टूट गया है • ऑटो-रीकनेक्ट चालू है...</Text>
+          </View>
+        )}
+        {isReconnectedAlertVisible && isConnected && (
+          <View style={[styles.offlineStatusBar, { backgroundColor: '#059669' }]}>
+            <Text style={styles.offlineStatusText}>🟢 पुनः कनेक्ट हुआ! सभी संदेश सिंक हैं ✅</Text>
+          </View>
+        )}
+
         {/* 🎙️ Group Live Stage Banner */}
         {!isDirectChat && (
           <TouchableOpacity 
@@ -2276,8 +2332,13 @@ export default function App() {
                 contentContainerStyle={styles.messageList}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
+                initialNumToRender={25}
+                maxToRenderPerBatch={15}
+                windowSize={11}
+                removeClippedSubviews={Platform.OS !== 'web'}
+                updateCellsBatchingPeriod={30}
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
                 renderItem={({ item }) => {
                   const isMine = item.sender === currentUser;
                   const isAiSender = item.sender === '🤖 GupShupp AI' || (item.isAi && item.sender !== currentUser);
@@ -3866,7 +3927,10 @@ const styles = StyleSheet.create({
   appearancePreviewCard: { padding: 12, borderRadius: 12, borderWidth: 1 },
   previewLabel: { fontSize: 11, fontWeight: '700' },
   previewBubbleMine: { maxWidth: '85%', paddingHorizontal: 12, paddingVertical: 8 },
-  previewBubbleOther: { maxWidth: '85%', paddingHorizontal: 12, paddingVertical: 8 },
   neoFloatingNavBar: { flexDirection: 'row', marginHorizontal: 14, marginBottom: 10, paddingVertical: 6, paddingHorizontal: 6, borderRadius: 24, borderWidth: 1, elevation: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
-  neoBottomNavItem: { flex: 1, alignItems: 'center', paddingVertical: 4 }
+  neoBottomNavItem: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+
+  // Edge Case: Real-time Ambient Offline / Online Banner
+  offlineStatusBar: { backgroundColor: '#dc2626', paddingVertical: 6, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  offlineStatusText: { color: '#ffffff', fontSize: 12, fontWeight: '800', textAlign: 'center' }
 });
