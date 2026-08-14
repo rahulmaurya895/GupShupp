@@ -981,6 +981,22 @@ export default function App() {
     socket.emit('join_room', { room: cleanRoom, username: currentUser });
   };
 
+  // Open Broadcast Channel Room
+  const openChannelRoom = (chan) => {
+    if (!chan) return;
+    const roomName = `channel_${chan.name}`;
+    setActiveRoom(roomName);
+    setChatTitle(`📢 @${chan.name}`);
+    setIsDirectChat(false);
+    setMessages([]);
+    setIsLoadingHistory(true);
+    setAiSmartReplies([]);
+    setIsSearchActive(false);
+    setSearchQuery('');
+    navigateToChat();
+    socket.emit('join_room', { room: roomName, username: currentUser });
+  };
+
   // Send Message
   const sendMessage = (type = 'text', payload = {}) => {
     if (type === 'text' && !message.trim()) return;
@@ -1548,19 +1564,24 @@ export default function App() {
                 { name: 'friends', desc: 'Chill & Hangout Group 🎉', members: 28, icon: '🍕' },
                 { name: 'gaming', desc: 'Esports, BGMI, Valorant & Streamers 🎮', members: 64, icon: '🕹️' }
               ].map((grp, i) => (
-                <View key={i} style={[styles.superGroupCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <TouchableOpacity 
+                  key={i} 
+                  activeOpacity={0.85}
+                  style={[styles.superGroupCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                  onPress={() => joinGroupRoom(grp.name)}
+                >
                   <View style={styles.groupCardHeader}>
                     <Text style={styles.superGroupIcon}>{grp.icon}</Text>
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={[styles.superGroupName, { color: theme.text }]}>#{grp.name}</Text>
                       <Text style={[styles.superGroupMembers, { color: theme.textMuted }]}>👥 {grp.members} मेंबर्स • 👑 Verified</Text>
                     </View>
-                    <TouchableOpacity style={[styles.joinGroupBtn, { backgroundColor: theme.accentLight }]} onPress={() => joinGroupRoom(grp.name)}>
-                      <Text style={styles.joinGroupBtnText}>Join 🚪</Text>
+                    <TouchableOpacity style={[styles.joinGroupBtn, { backgroundColor: theme.accent }]} onPress={() => joinGroupRoom(grp.name)}>
+                      <Text style={[styles.joinGroupBtnText, { color: '#000000' }]}>Join 🚪</Text>
                     </TouchableOpacity>
                   </View>
                   <Text style={[styles.superGroupDesc, { color: theme.textMuted }]}>{grp.desc}</Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -1570,24 +1591,29 @@ export default function App() {
               <View style={styles.channelHeaderRow}>
                 <Text style={[styles.sectionHeading, { color: theme.text }]}>📢 ब्रॉडकास्ट चैनल्स</Text>
                 <TouchableOpacity style={[styles.createChanBtn, { backgroundColor: theme.accent }]} onPress={() => setShowCreateChannelModal(true)}>
-                  <Text style={styles.createChanBtnText}>+ नया चैनल</Text>
+                  <Text style={[styles.createChanBtnText, { color: '#000000' }]}>+ नया चैनल</Text>
                 </TouchableOpacity>
               </View>
 
               {channels.map((chan, idx) => (
-                <View key={idx} style={[styles.channelCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <TouchableOpacity 
+                  key={idx} 
+                  activeOpacity={0.85}
+                  style={[styles.channelCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                  onPress={() => openChannelRoom(chan)}
+                >
                   <View style={styles.channelHeader}>
                     <Text style={styles.channelIcon}>📢</Text>
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={[styles.channelName, { color: theme.text }]}>@{chan.name}</Text>
-                      <Text style={[styles.channelSubscribers, { color: theme.textMuted }]}>👥 {chan.subscribersCount} सब्सक्राइबर्स • Admin: @{chan.creator}</Text>
+                      <Text style={[styles.channelSubscribers, { color: theme.textMuted }]}>👥 {chan.subscribersCount || 1} सब्सक्राइबर्स • Admin: @{chan.creator}</Text>
                     </View>
                   </View>
                   <Text style={[styles.channelDesc, { color: theme.textMuted }]}>{chan.description}</Text>
-                  <TouchableOpacity style={[styles.viewChannelBtn, { backgroundColor: theme.border }]} onPress={() => joinGroupRoom(`channel_${chan.name}`)}>
-                    <Text style={[styles.viewChannelBtnText, { color: theme.accentLight }]}>चैनल देखें ➔</Text>
+                  <TouchableOpacity style={[styles.viewChannelBtn, { backgroundColor: theme.card, borderColor: theme.accent, borderWidth: 1 }]} onPress={() => openChannelRoom(chan)}>
+                    <Text style={[styles.viewChannelBtnText, { color: theme.accent }]}>चैनल देखें ➔</Text>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
