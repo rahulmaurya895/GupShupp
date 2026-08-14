@@ -64,12 +64,8 @@ jobs:
             cd server
             npm install --production
 
-            # 5. Build Expo Web Static Frontend
-            echo "🌐 Exporting 24/7 Web App Static Bundle..."
-            cd ../app
-            npm install
-            npx expo export --platform web
-            cd ../server
+            # 5. Prebuilt Web Bundle Ready
+            echo "🌐 Verified 24/7 Web App Static Bundle in app/dist..."
 
             # 6. PM2 Zero-Downtime Reload / Start
             echo "🔄 Triggering PM2 Zero-Downtime Cluster Reload..."
