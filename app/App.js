@@ -524,10 +524,58 @@ export default function App() {
     alert('वॉलपेपर डिफॉल्ट थीम पर रीसेट कर दिया गया।');
   };
 
-  // 1. Initial Session Check & Settings Loading
+  // 🔄 App Storage Schema Migration Engine (Zero Data Loss Policy)
+  const CURRENT_APP_SCHEMA_VERSION = 6;
+
+  const runAppStorageMigration = async () => {
+    try {
+      const rawVersion = await Storage.getItem('@gupshupp_schema_version');
+      const prevVersion = rawVersion ? parseInt(rawVersion, 10) : 0;
+
+      if (prevVersion < CURRENT_APP_SCHEMA_VERSION) {
+        // 1. Migrate Legacy Auth Keys (v0/v1 -> v6)
+        const legacyToken = await Storage.getItem('token') || await Storage.getItem('auth_token') || await Storage.getItem('@user_token');
+        const legacyUser = await Storage.getItem('user') || await Storage.getItem('username') || await Storage.getItem('@username');
+        if (legacyToken && !(await Storage.getItem('@gupshupp_token'))) {
+          await Storage.setItem('@gupshupp_token', legacyToken);
+        }
+        if (legacyUser && !(await Storage.getItem('@gupshupp_user'))) {
+          await Storage.setItem('@gupshupp_user', legacyUser);
+        }
+
+        // 2. Validate & Sanitize Recent Chats (v2/v3 -> v6)
+        const rawRecent = await Storage.getItem('@gupshupp_recent_chats');
+        if (rawRecent) {
+          try {
+            const parsed = JSON.parse(rawRecent);
+            if (Array.isArray(parsed)) {
+              const sanitized = parsed.map(c => ({
+                id: c.id || `chat_${Date.now()}`,
+                title: c.title || '#general',
+                type: c.type || 'group',
+                lastMsg: c.lastMsg || '',
+                time: c.time || 'Recently',
+                unread: typeof c.unread === 'number' ? c.unread : 0,
+                avatar: c.avatar || '💬'
+              }));
+              await Storage.setItem('@gupshupp_recent_chats', JSON.stringify(sanitized));
+            }
+          } catch (e) {}
+        }
+
+        // 3. Mark Schema as Successfully Migrated
+        await Storage.setItem('@gupshupp_schema_version', CURRENT_APP_SCHEMA_VERSION.toString());
+      }
+    } catch (err) {}
+  };
+
+  // 1. Initial Session Check & Settings Loading (with Migration Execution)
   useEffect(() => {
     const init = async () => {
       try {
+        // Run migration before loading session
+        await runAppStorageMigration();
+
         const savedTheme = await Storage.getItem('@gupshupp_theme');
         if (savedTheme !== null) setIsDarkMode(savedTheme === 'dark');
 
@@ -551,13 +599,22 @@ export default function App() {
         const savedGhost = await Storage.getItem('@gupshupp_ghost');
         const savedPinned = await Storage.getItem('@gupshupp_pinned');
         const savedWallpaper = await Storage.getItem('@gupshupp_wallpaper');
+        const savedRecent = await Storage.getItem('@gupshupp_recent_chats');
 
         if (savedAvatar) setUserAvatar(savedAvatar);
         if (savedStatus) setUserStatus(savedStatus);
         if (savedPin) setUserPin(savedPin);
         if (savedGhost) setGhostMode(savedGhost === 'true');
-        if (savedPinned) setPinnedChats(JSON.parse(savedPinned));
+        if (savedPinned) {
+          try { setPinnedChats(JSON.parse(savedPinned)); } catch (e) {}
+        }
         if (savedWallpaper) setChatWallpaper(savedWallpaper);
+        if (savedRecent) {
+          try {
+            const parsedRecent = JSON.parse(savedRecent);
+            if (Array.isArray(parsedRecent) && parsedRecent.length > 0) setRecentChats(parsedRecent);
+          } catch (e) {}
+        }
 
         if (savedToken && savedUser) {
           setAuthToken(savedToken);
@@ -643,12 +700,16 @@ export default function App() {
           unread: (existingIdx > -1 ? prev[existingIdx].unread : 0) + (data.sender !== currentUser ? 1 : 0),
           avatar: data.isAi ? '🤖' : (data.room.startsWith('dm_') ? '👤' : '👥')
         };
+        let finalRecent = [];
         if (existingIdx > -1) {
           const updated = [...prev];
           updated.splice(existingIdx, 1);
-          return [newEntry, ...updated];
+          finalRecent = [newEntry, ...updated];
+        } else {
+          finalRecent = [newEntry, ...prev];
         }
-        return [newEntry, ...prev];
+        Storage.setItem('@gupshupp_recent_chats', JSON.stringify(finalRecent)).catch(() => {});
+        return finalRecent;
       });
 
       // Push Notification trigger
