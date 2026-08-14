@@ -76,6 +76,7 @@ const stageRoomsMap = new Map(); // room -> Map of username -> { socketId, avata
 const scheduledMessagesStore = new Map(); // msgId -> scheduled msg object
 const channelCommentsStore = new Map(); // postId -> Array of comments
 const miniAppGameStore = new Map(); // roomId -> game state
+let globalMessageSequenceCounter = 0; // Monotonic Server Sequence Ordering (Clock Drift Immunity)
 
 // ⏱️ Phase 5: 5-Second Scheduled Message Dispatcher
 setInterval(() => {
@@ -909,6 +910,8 @@ io.on('connection', (socket) => {
             disappearingTtl: disappearingTtl || 0,
             expiresAt: expiresAt,
             isAi: !!isAi,
+            serverSeq: ++globalMessageSequenceCounter,
+            timestamp: new Date(),
             time: messageTime
         };
 
