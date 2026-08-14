@@ -795,8 +795,12 @@ export default function App() {
       setActiveStoryModal((prev) => prev && prev._id === storyId ? { ...prev, views } : prev);
     });
 
-    socket.on('message_deleted', ({ messageId }) => {
-      setMessages((prev) => prev.map(m => m._id === messageId ? { ...m, text: '🚫 यह मैसेज डिलीट कर दिया गया है', type: 'text', image: null, audio: null, document: null } : m));
+    socket.on('message_deleted', ({ messageId, isExpired }) => {
+      if (isExpired) {
+        setMessages((prev) => prev.filter(m => m._id !== messageId));
+      } else {
+        setMessages((prev) => prev.map(m => m._id === messageId ? { ...m, text: '🚫 यह मैसेज डिलीट कर दिया गया है', type: 'text', image: null, audio: null, document: null } : m));
+      }
     });
 
     socket.on('room_members_count', ({ count }) => setActiveMembersCount(count || 1));

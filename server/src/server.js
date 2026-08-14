@@ -102,6 +102,22 @@ setInterval(() => {
     }
 }, 5000);
 
+// ⏳ Disappearing Messages Self-Destruct Active Sweeper (Every 2 Seconds)
+setInterval(() => {
+    const nowMs = Date.now();
+    for (const [msgId, msg] of messageStore.entries()) {
+        if (msg && msg.expiresAt && !msg.isDeleted) {
+            const expTime = new Date(msg.expiresAt).getTime();
+            if (nowMs >= expTime) {
+                msg.isDeleted = true;
+                messageStore.delete(msgId);
+                io.to(msg.room).emit('message_deleted', { room: msg.room, messageId: msgId, isExpired: true });
+                console.log(`⏳ [Self-Destruct Sweeper] Message ${msgId} in #${msg.room} reached TTL and vanished cleanly.`);
+            }
+        }
+    }
+}, 2000);
+
 // 🛡️ Universal XSS, Script Injection & NoSQL Input Sanitizer
 function sanitizeInputText(input) {
     if (!input || typeof input !== 'string') return '';
@@ -281,6 +297,7 @@ const messageSchema = new mongoose.Schema({
     time: { type: String },
     timestamp: { type: Date, default: Date.now }
 });
+messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 const Message = mongoose.model('Message', messageSchema);
 
 // 🤖 Google Gemini Live Brain Integration
@@ -816,17 +833,22 @@ io.on('connection', (socket) => {
 
         io.to(cleanRoom).emit('room_members_count', { room: cleanRoom, count: memberCount });
 
-        // Load History (MongoDB or Fast In-Memory Store)
+        // Load History (MongoDB or Fast In-Memory Store - with TTL Expiry Filter)
+        const now = new Date();
         if (mongoose.connection.readyState === 1) {
-            Message.find({ room: cleanRoom })
+            Message.find({ 
+                room: cleanRoom,
+                $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }]
+            })
                 .sort({ timestamp: 1 })
                 .limit(80)
                 .lean()
                 .then(history => socket.emit('load_history', history))
                 .catch(err => console.error(`History error for ${cleanRoom}:`, err.message));
         } else {
+            const nowMs = Date.now();
             const memoryHistory = Array.from(messageStore.values())
-                .filter(m => m && m.room === cleanRoom && !m.isDeleted)
+                .filter(m => m && m.room === cleanRoom && !m.isDeleted && (!m.expiresAt || new Date(m.expiresAt).getTime() > nowMs))
                 .slice(-80);
             socket.emit('load_history', memoryHistory);
         }
