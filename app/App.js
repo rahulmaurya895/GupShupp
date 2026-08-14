@@ -2544,8 +2544,8 @@ export default function App() {
                       <Text style={[styles.lockIcon, { color: theme.textMuted }]}>🔒</Text>
                       <Text style={[styles.timestamp, { color: theme.textMuted }]}>{item.time}</Text>
                       {isMine && (
-                        <Text style={[styles.tickIcon, item.status === 'read' ? { color: '#38bdf8' } : { color: theme.textMuted }]}>
-                          {item.status === 'read' ? '✓✓' : (item.status === 'delivered' ? '✓✓' : '✓')}
+                        <Text style={[styles.tickIcon, item.status === 'sending' ? { color: '#fbbf24', fontSize: 10 } : (item.status === 'read' ? { color: '#38bdf8' } : { color: theme.textMuted })]}>
+                          {item.status === 'sending' ? '🕒' : (item.status === 'read' ? '✓✓' : (item.status === 'delivered' ? '✓✓' : '✓'))}
                         </Text>
                       )}
                     </View>
