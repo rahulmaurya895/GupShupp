@@ -7,6 +7,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { GoogleGenAI } = require('@google/genai');
+const { createAdapter } = require('@socket.io/cluster-adapter');
+const { setupWorker } = require('@socket.io/sticky');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'gupshupp_ultra_secure_jwt_secret_2026';
 
@@ -17,6 +19,17 @@ const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] },
     maxHttpBufferSize: 1e8 // 100MB buffer for media/audio/files
 });
+
+// 🏛️ Multi-Core Cluster / Worker IPC Mode Hook (For Oracle 3 OCPU / 18 GB RAM)
+if (process.env.CLUSTER_MODE === 'true') {
+    try {
+        io.adapter(createAdapter());
+        setupWorker(server);
+        console.log(`⚡ [Worker PID ${process.pid}] Initialized with Multi-Core Cluster IPC Adapter`);
+    } catch (e) {
+        console.log("Cluster adapter note:", e.message);
+    }
+}
 
 // Global CORS Middleware
 app.use((req, res, next) => {
@@ -1180,8 +1193,16 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`==========================================`);
-    console.log(`🚀 GupShupp ENTERPRISE PRO SERVER LIVE on Port ${PORT}`);
-    console.log(`==========================================`);
-});
+
+if (process.env.CLUSTER_MODE === 'true') {
+    // In cluster mode with @socket.io/sticky, the master process manages port 3000
+    server.listen(0, () => {
+        console.log(`🚀 [Worker PID ${process.pid}] Online & Ready for Oracle 3 OCPU Core`);
+    });
+} else {
+    server.listen(PORT, () => {
+        console.log(`==========================================`);
+        console.log(`🚀 GupShupp ENTERPRISE PRO SERVER LIVE on Port ${PORT}`);
+        console.log(`==========================================`);
+    });
+}
