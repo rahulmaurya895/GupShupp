@@ -255,6 +255,7 @@ export default function App() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [activeMembersCount, setActiveMembersCount] = useState(1);
   const [typingUser, setTypingUser] = useState('');
+  const [displayedMessageLimit, setDisplayedMessageLimit] = useState(50);
 
   // 🔍 In-Chat Message Search
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -1307,8 +1308,8 @@ export default function App() {
     return 0;
   });
 
-  // Filter Active Messages
-  const visibleMessages = messages.filter((msg) => {
+  // Filter and Window Active Messages (Windowed Pagination & Lazy Loading)
+  const allFilteredMessages = messages.filter((msg) => {
     if (msg.expiresAt && new Date(msg.expiresAt) <= new Date()) return false;
     if (isSearchActive && searchQuery.trim()) {
       const dec = decryptText(msg.text).toLowerCase();
@@ -1317,6 +1318,9 @@ export default function App() {
     }
     return true;
   });
+
+  const hasOlderMessages = !isSearchActive && allFilteredMessages.length > displayedMessageLimit;
+  const visibleMessages = isSearchActive ? allFilteredMessages : allFilteredMessages.slice(-displayedMessageLimit);
 
   // --- 0. PIN LOCK SCREEN ---
   if (screen === 'PIN_LOCK') {
@@ -2347,10 +2351,17 @@ export default function App() {
                 initialNumToRender={25}
                 maxToRenderPerBatch={15}
                 windowSize={11}
-                removeClippedSubviews={Platform.OS !== 'web'}
-                updateCellsBatchingPeriod={30}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                ListHeaderComponent={hasOlderMessages ? (
+                  <TouchableOpacity 
+                    style={styles.loadOlderBtn} 
+                    onPress={() => setDisplayedMessageLimit((prev) => prev + 50)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.loadOlderText, { color: theme.accentLight }]}>
+                      📜 {allFilteredMessages.length - displayedMessageLimit} पुराने संदेश लोड करें (Load Older)
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
                 renderItem={({ item }) => {
                   const isMine = item.sender === currentUser;
                   const isAiSender = item.sender === '🤖 GupShupp AI' || (item.isAi && item.sender !== currentUser);
@@ -3944,5 +3955,9 @@ const styles = StyleSheet.create({
 
   // Edge Case: Real-time Ambient Offline / Online Banner
   offlineStatusBar: { backgroundColor: '#dc2626', paddingVertical: 6, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
-  offlineStatusText: { color: '#ffffff', fontSize: 12, fontWeight: '800', textAlign: 'center' }
+  offlineStatusText: { color: '#ffffff', fontSize: 12, fontWeight: '800', textAlign: 'center' },
+
+  // Pagination & Lazy Loading
+  loadOlderBtn: { paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', marginVertical: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20, alignSelf: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  loadOlderText: { fontSize: 12, fontWeight: '800' }
 });
