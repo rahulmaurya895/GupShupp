@@ -881,20 +881,19 @@ export default function App() {
     if (showMiniAppModal) { setShowMiniAppModal(false); return true; }
     if (showSendOptionsModal) { setShowSendOptionsModal(false); return true; }
     if (activeChannelPostForComments) { setActiveChannelPostForComments(null); return true; }
-    if (showSharedVaultModal) { setShowSharedVaultModal(false); return true; }
-    if (showStageRoomModal) { setShowStageRoomModal(false); return true; }
-    if (showQrLoginModal) { setShowQrLoginModal(false); return true; }
+    if (showSharedMediaVault) { setShowSharedMediaVault(false); return true; }
+    if (activeStageRoom) { setActiveStageRoom(null); return true; }
+    if (showLinkedDevicesModal) { setShowLinkedDevicesModal(false); return true; }
     if (showCreateStoryModal) { setShowCreateStoryModal(false); return true; }
     if (activeStoryModal) { setActiveStoryModal(null); return true; }
     if (showStoryViewers) { setShowStoryViewers(false); return true; }
     if (showCreateChannelModal) { setShowCreateChannelModal(false); return true; }
     if (selectedMessageForAction) { setSelectedMessageForAction(null); return true; }
     if (selectedImageModal) { setSelectedImageModal(null); return true; }
-    if (showPollModal) { setShowPollModal(false); return true; }
-    if (showSummaryModal) { setShowSummaryModal(false); return true; }
+    if (showCreatePollModal) { setShowCreatePollModal(false); return true; }
+    if (aiSummaryModal) { setAiSummaryModal(null); return true; }
     if (showDisappearingModal) { setShowDisappearingModal(false); return true; }
-    if (showNewDmModal) { setShowNewDmModal(false); return true; }
-    if (showNewGroupModal) { setShowNewGroupModal(false); return true; }
+    if (showWallpaperModal) { setShowWallpaperModal(false); return true; }
     if (incomingCall) { setIncomingCall(null); return true; }
     if (isSearchActive) { setIsSearchActive(false); setSearchQuery(''); return true; }
 
@@ -942,10 +941,10 @@ export default function App() {
     };
   }, [
     screen, bottomNav, activeRoom, currentUser, activeOneTimePhoto, showMiniAppModal, 
-    showSendOptionsModal, activeChannelPostForComments, showSharedVaultModal, showStageRoomModal, 
-    showQrLoginModal, showCreateStoryModal, activeStoryModal, showStoryViewers, 
-    showCreateChannelModal, selectedMessageForAction, selectedImageModal, showPollModal, 
-    showSummaryModal, showDisappearingModal, showNewDmModal, showNewGroupModal, incomingCall, isSearchActive
+    showSendOptionsModal, activeChannelPostForComments, showSharedMediaVault, activeStageRoom, 
+    showLinkedDevicesModal, showCreateStoryModal, activeStoryModal, showStoryViewers, 
+    showCreateChannelModal, selectedMessageForAction, selectedImageModal, showCreatePollModal, 
+    aiSummaryModal, showDisappearingModal, showWallpaperModal, incomingCall, isSearchActive
   ]);
 
   // Join 1-on-1 Chat
