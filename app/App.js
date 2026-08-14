@@ -347,6 +347,10 @@ export default function App() {
   const [isLiveTranslateActive, setIsLiveTranslateActive] = useState(false);
   const [liveTranslateLang, setLiveTranslateLang] = useState('Hindi');
 
+  // 🐒 Chaos Monkey & Safety Guard
+  const [chaosWarningModal, setChaosWarningModal] = useState({ visible: false, title: '', message: '' });
+  const lastActionTapTimeRef = useRef(0);
+
   // Home Bottom Tabs: 'CHATS' | 'GROUPS' | 'CHANNELS' | 'PROFILE'
   const [bottomNav, setBottomNav] = useState('CHATS');
 
@@ -946,6 +950,7 @@ export default function App() {
   // 🔙 Universal Back Navigation Handler (Android Hardware Button, Web Popstate, Header Back)
   const handleBackNavigation = () => {
     // 1. Close any open active modals first
+    if (chaosWarningModal.visible) { setChaosWarningModal({ visible: false, title: '', message: '' }); return true; }
     if (activeOneTimePhoto) { setActiveOneTimePhoto(null); return true; }
     if (showMiniAppModal) { setShowMiniAppModal(false); return true; }
     if (showSendOptionsModal) { setShowSendOptionsModal(false); return true; }
@@ -1013,7 +1018,7 @@ export default function App() {
     showSendOptionsModal, activeChannelPostForComments, showSharedMediaVault, activeStageRoom, 
     showLinkedDevicesModal, showCreateStoryModal, activeStoryModal, showStoryViewers, 
     showCreateChannelModal, selectedMessageForAction, selectedImageModal, showCreatePollModal, 
-    aiSummaryModal, showDisappearingModal, showWallpaperModal, incomingCall, isSearchActive
+    aiSummaryModal, showDisappearingModal, showWallpaperModal, incomingCall, isSearchActive, chaosWarningModal.visible
   ]);
 
   // Join 1-on-1 Chat
@@ -1066,9 +1071,16 @@ export default function App() {
     socket.emit('join_room', { room: roomName, username: currentUser });
   };
 
-  // Send Message
+  // Send Message (with Rapid-Tap Debounce Guard)
   const sendMessage = (type = 'text', payload = {}) => {
     if (type === 'text' && !message.trim()) return;
+
+    const now = Date.now();
+    // 🐒 Chaos Monkey: Debounce rapid button spam (< 300ms)
+    if (now - lastActionTapTimeRef.current < 300) {
+      return;
+    }
+    lastActionTapTimeRef.current = now;
 
     const messageTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const isAiTrigger = type === 'text' && /^(@ai|@coder|@meme|@news|@roast)\b/i.test(message.trim());
@@ -1120,47 +1132,82 @@ export default function App() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
-  // Media Picker (Lossless HD & 1-Time Self-Destruct View)
+  // Media Picker (Lossless HD & 1-Time Self-Destruct View with Size Limit Guard)
   const pickAndSendImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        alert('फोटो भेजने के लिए गैलरी परमिशन आवश्यक है।');
+        setChaosWarningModal({
+          visible: true,
+          title: '📷 गैलरी परमिशन आवश्यक',
+          message: 'फोटो या वीडियो भेजने के लिए गैलरी परमिशन की आवश्यकता है।'
+        });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: true,
         quality: isHdMediaMode ? 1.0 : 0.7,
         base64: true
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        sendMessage('image', {
+        const asset = result.assets[0];
+        const MAX_MEDIA_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+        
+        if (asset.fileSize && asset.fileSize > MAX_MEDIA_SIZE_BYTES) {
+          setChaosWarningModal({
+            visible: true,
+            title: '⚠️ वीडियो साइज़ बहुत बड़ा है (Video Too Large)',
+            message: `चुनी गई फाइल (${(asset.fileSize / (1024 * 1024)).toFixed(1)} MB) अधिकतम 50 MB सीमा से बड़ी है। कृपया कंप्रेस्ड वीडियो चुनें।`
+          });
+          return;
+        }
+
+        const base64Uri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        sendMessage(asset.type === 'video' ? 'video' : 'image', {
           image: base64Uri,
-          caption: encryptText(isOneTimeMediaMode ? '🔥 1-Time Photo' : (isHdMediaMode ? '💎 HD Photo' : '📷 Photo')),
+          caption: encryptText(isOneTimeMediaMode ? '🔥 1-Time Media' : (isHdMediaMode ? '💎 HD Media' : '📷 Media')),
           isHd: isHdMediaMode,
           isOneTime: isOneTimeMediaMode
         });
       }
     } catch (e) {
-      alert('फोटो सेलेक्ट करने में समस्या आई।');
+      setChaosWarningModal({
+        visible: true,
+        title: '⚠️ मीडिया एरर',
+        message: 'मीडिया फाइल सेलेक्ट करने में समस्या आई।'
+      });
     }
   };
 
-  // Document Picker
+  // Document Picker (with 50MB Size Limit Guard)
   const pickAndSendDocument = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
       if (!res.canceled && res.assets && res.assets.length > 0) {
         const file = res.assets[0];
+        const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
         const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+
+        if (file.size && file.size > MAX_FILE_SIZE_BYTES) {
+          setChaosWarningModal({
+            visible: true,
+            title: '⚠️ फाइल साइज़ बहुत बड़ा है (File Too Large)',
+            message: `चुनी गई फाइल (${sizeMb} MB) अधिकतम 50 MB सीमा से बड़ी है। कृपया 50 MB से कम साइज़ की फाइल चुनें।`
+          });
+          return;
+        }
+
         sendMessage('document', {
           document: { name: encryptText(file.name), size: `${sizeMb} MB`, uri: file.uri }
         });
       }
     } catch (e) {
-      alert('डॉक्युमेंट सेलेक्ट करने में समस्या आई।');
+      setChaosWarningModal({
+        visible: true,
+        title: '⚠️ डॉक्युमेंट एरर',
+        message: 'डॉक्युमेंट सेलेक्ट करने में समस्या आई।'
+      });
     }
   };
 
@@ -3282,6 +3329,24 @@ export default function App() {
           </View>
         </Modal>
 
+        {/* ⚠️ Modal: Chaos Monkey & File Size Alert Card */}
+        <Modal visible={chaosWarningModal.visible} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.chaosAlertCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={styles.chaosAlertIcon}>⚠️</Text>
+              <Text style={[styles.chaosAlertTitle, { color: theme.text }]}>{chaosWarningModal.title}</Text>
+              <Text style={[styles.chaosAlertMsg, { color: theme.textMuted }]}>{chaosWarningModal.message}</Text>
+              <TouchableOpacity 
+                style={[styles.chaosAlertBtn, { backgroundColor: theme.accentLight }]}
+                onPress={() => setChaosWarningModal({ visible: false, title: '', message: '' })}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.chaosAlertBtnText}>समझ गया (OK)</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* 📢 Modal: Channel Comments & Discussion Threads */}
         <Modal visible={!!activeChannelPostForComments} transparent animationType="slide">
           <View style={styles.modalOverlay}>
@@ -3959,5 +4024,13 @@ const styles = StyleSheet.create({
 
   // Pagination & Lazy Loading
   loadOlderBtn: { paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center', marginVertical: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 20, alignSelf: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  loadOlderText: { fontSize: 12, fontWeight: '800' }
+  loadOlderText: { fontSize: 12, fontWeight: '800' },
+
+  // 🐒 Chaos Monkey Alert Card Styles
+  chaosAlertCard: { width: '85%', maxWidth: 360, padding: 22, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', elevation: 10, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12 },
+  chaosAlertIcon: { fontSize: 42, marginBottom: 12 },
+  chaosAlertTitle: { fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
+  chaosAlertMsg: { fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 18 },
+  chaosAlertBtn: { width: '100%', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  chaosAlertBtnText: { color: '#000000', fontSize: 14, fontWeight: '900' }
 });
