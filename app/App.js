@@ -60,9 +60,16 @@ async function registerForPushNotificationsAsync() {
 // 🌐 Backend Server Host Config
 const LOCAL_PC_IP = "10.128.7.140";
 const ORACLE_CLOUD_IP = "140.238.225.236";
-const USE_ORACLE_CLOUD = false;
+const USE_ORACLE_CLOUD = true;
 
-const SERVER_HOST = USE_ORACLE_CLOUD ? ORACLE_CLOUD_IP : (Platform.OS === 'web' ? 'localhost' : LOCAL_PC_IP);
+const getHost = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location && window.location.hostname) {
+    return window.location.hostname;
+  }
+  return USE_ORACLE_CLOUD ? ORACLE_CLOUD_IP : LOCAL_PC_IP;
+};
+
+const SERVER_HOST = getHost();
 const BASE_URL = `http://${SERVER_HOST}:3000`;
 const SOCKET_URL = BASE_URL;
 

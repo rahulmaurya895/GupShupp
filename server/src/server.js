@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
@@ -550,16 +552,40 @@ async function transcribeVoiceAudioWithAi(audioUri) {
     return "नमस्ते भाई! क्या हाल चाल है, सब बढ़िया?";
 }
 
-// Base Status Route
-app.get('/', (req, res) => {
+// Base API Status Route
+app.get('/api/status', (req, res) => {
     res.json({
         status: "Online",
         app: "GupShupp Enterprise Pro Super-App Engine",
+        version: "7.0.0",
         database: mongoose.connection.readyState === 1 ? "Connected" : "In-Memory Mode",
         activeConnections: io.engine.clientsCount,
         onlineUsers: Array.from(new Set(globalOnlineUsers.values()))
     });
 });
+
+// 🌐 24/7 Global Web App Static Hosting (Expo Web Dist)
+const webBuildPath = path.join(__dirname, '../../app/dist');
+if (fs.existsSync(webBuildPath)) {
+    app.use(express.static(webBuildPath));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+            return next();
+        }
+        res.sendFile(path.join(webBuildPath, 'index.html'));
+    });
+    console.log(`🌐 [Web App Hosting] Serving static web client from ${webBuildPath}`);
+} else {
+    app.get('/', (req, res) => {
+        res.json({
+            status: "Online",
+            app: "GupShupp Enterprise Pro Super-App Engine",
+            database: mongoose.connection.readyState === 1 ? "Connected" : "In-Memory Mode",
+            activeConnections: io.engine.clientsCount,
+            onlineUsers: Array.from(new Set(globalOnlineUsers.values()))
+        });
+    });
+}
 
 // --- AUTH & PROFILE HTTP ROUTES ---
 app.post('/api/register', async (req, res) => {
