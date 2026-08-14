@@ -17,7 +17,11 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] },
-    maxHttpBufferSize: 1e8 // 100MB buffer for media/audio/files
+    maxHttpBufferSize: 1e8, // 100MB buffer for media/audio/files
+    pingTimeout: 60000,     // 60s timeout tolerance for throttled/50kbps networks
+    pingInterval: 25000,    // 25s heartbeat interval
+    upgradeTimeout: 30000,  // 30s upgrade buffer for high latency connections
+    connectTimeout: 45000   // 45s handshake connection timeout
 });
 
 // 🏛️ Multi-Core Cluster / Worker IPC Mode Hook (For Oracle 3 OCPU / 18 GB RAM)
@@ -991,6 +995,11 @@ io.on('connection', (socket) => {
     socket.on('ai_smart_replies_request', async ({ lastMessage }, callback) => {
         const replies = await generateSmartRepliesWithAi(lastMessage);
         if (typeof callback === 'function') callback({ success: true, replies });
+    });
+
+    // 📶 Heartbeat Ping-Pong for Client Network Throttling / Slow Network Detection
+    socket.on('ping_heartbeat', (data, callback) => {
+        if (typeof callback === 'function') callback({ success: true, serverTimestamp: Date.now() });
     });
 
     // 8. Reactions & Star Messages

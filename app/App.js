@@ -72,9 +72,10 @@ const socket = io(SOCKET_URL, {
   reconnection: true,
   reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
+  reconnectionDelayMax: 10000,
   randomizationFactor: 0.5,
-  timeout: 10000
+  timeout: 45000, // Extended 45s tolerance for 50kbps throttled networks
+  ackTimeout: 30000
 });
 
 // Universal Safe Storage Helper
@@ -250,6 +251,8 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [networkQuality, setNetworkQuality] = useState('FAST'); // 'FAST' | 'SLOW' | 'OFFLINE'
+  const [networkRttMs, setNetworkRttMs] = useState(0);
   const [isReconnectedAlertVisible, setIsReconnectedAlertVisible] = useState(false);
   const [offlineQueue, setOfflineQueue] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -767,6 +770,33 @@ export default function App() {
       socket.off('game_state_update');
     };
   }, [currentUser, ghostMode]);
+
+  // 📶 Adaptive Network Speed & Throttling Detector (50kbps Slow Network Protection)
+  useEffect(() => {
+    if (!isConnected) {
+      setNetworkQuality('OFFLINE');
+      return;
+    }
+
+    const checkNetworkRtt = () => {
+      const pingStart = Date.now();
+      socket.emit('ping_heartbeat', { clientTimestamp: pingStart }, (res) => {
+        const rtt = Date.now() - pingStart;
+        setNetworkRttMs(rtt);
+        if (rtt > 750) {
+          // Slow network detected (>750ms RTT e.g. 50kbps 2G or throttled link)
+          setNetworkQuality('SLOW');
+        } else {
+          setNetworkQuality('FAST');
+        }
+      });
+    };
+
+    const heartbeatInterval = setInterval(checkNetworkRtt, 10000);
+    checkNetworkRtt();
+
+    return () => clearInterval(heartbeatInterval);
+  }, [isConnected]);
 
   // Call duration counter
   useEffect(() => {
@@ -1566,6 +1596,11 @@ export default function App() {
             <Text style={styles.offlineStatusText}>⚠️ नेटवर्क कनेक्शन टूट गया है • ऑटो-रीकनेक्ट चालू है...</Text>
           </View>
         )}
+        {isConnected && networkQuality === 'SLOW' && !isReconnectedAlertVisible && (
+          <View style={[styles.offlineStatusBar, { backgroundColor: '#d97706' }]}>
+            <Text style={styles.offlineStatusText}>🐢 धीमा नेटवर्क (Slow Network ~50kbps • RTT: {networkRttMs}ms) • संदेश सुरक्षित सिंक हो रहे हैं...</Text>
+          </View>
+        )}
         {isReconnectedAlertVisible && isConnected && (
           <View style={[styles.offlineStatusBar, { backgroundColor: '#059669' }]}>
             <Text style={styles.offlineStatusText}>🟢 पुनः कनेक्ट हुआ! सभी संदेश सिंक हैं ✅</Text>
@@ -2319,6 +2354,11 @@ export default function App() {
         {!isConnected && (
           <View style={styles.offlineStatusBar}>
             <Text style={styles.offlineStatusText}>⚠️ नेटवर्क कनेक्शन टूट गया है • ऑटो-रीकनेक्ट चालू है...</Text>
+          </View>
+        )}
+        {isConnected && networkQuality === 'SLOW' && !isReconnectedAlertVisible && (
+          <View style={[styles.offlineStatusBar, { backgroundColor: '#d97706' }]}>
+            <Text style={styles.offlineStatusText}>🐢 धीमा नेटवर्क (Slow Network ~50kbps • RTT: {networkRttMs}ms) • संदेश सुरक्षित सिंक हो रहे हैं...</Text>
           </View>
         )}
         {isReconnectedAlertVisible && isConnected && (
