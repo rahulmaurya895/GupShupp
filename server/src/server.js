@@ -286,10 +286,51 @@ function getGracefulFallbackResponse(botType, cleanPrompt, sender) {
     return `🤖 [GupShupp AI]: नमस्ते @${sender}! आपकी क्वेरी "${cleanPrompt}" का विश्लेषण पूर्ण हुआ। (ऑल सिस्टम्स नॉर्मल ✅)`;
 }
 
+// 🛡️ Security & Prompt Validation Guard (Prevents Overflows & Jailbreak Injections)
+function validateAiPrompt(prompt, sender) {
+    if (!prompt || typeof prompt !== 'string') {
+        return { isValid: false, reply: `नमस्ते @${sender}! कृपया अपना प्रश्न टाइप करें।` };
+    }
+
+    // 1. Oversized Prompt Guard (10,000 words / DOS Attack Protection)
+    if (prompt.length > 2000) {
+        return {
+            isValid: false,
+            reply: `⚠️ @${sender}, आपका संदेश बहुत लंबा है (${prompt.length} अक्षर)। बॉट को अत्यधिक बड़े इनपुट से सुरक्षित रखने के लिए अधिकतम 1,500 अक्षर अनुमत हैं। कृपया छोटा प्रश्न पूछें।`
+        };
+    }
+
+    // 2. Jailbreak & Security Bypass Filter
+    const securityBypassPatterns = [
+        /ignore\s+(all\s+)?previous\s+instructions/i,
+        /bypass\s+(safety|security|filter)/i,
+        /jailbreak/i,
+        /system\s+prompt\s+leak/i,
+        /reveal\s+your\s+(initial|system)\s+instructions/i,
+        /you\s+are\s+now\s+in\s+dan\s+mode/i,
+        /disable\s+content\s+moderation/i,
+        /act\s+as\s+an\s+unfiltered/i
+    ];
+
+    const isSecurityThreat = securityBypassPatterns.some(pattern => pattern.test(prompt));
+    if (isSecurityThreat) {
+        return {
+            isValid: false,
+            reply: `🛡️ क्षमा करें @${sender}, मैं सुरक्षा दिशा-निर्देशों और नैतिक नियमों का उल्लंघन करने वाले अनुरोधों को पूरा नहीं कर सकता। मैं आपकी अन्य सामान्य या तकनीकी बातचीत में सहायता के लिए तैयार हूँ!`
+        };
+    }
+
+    return { isValid: true };
+}
+
 // AI Functions Powered by Gemini 2.5 (Fast & Lightweight with Graceful Fallback)
 async function generateAiResponse(prompt, sender) {
     const cleanPrompt = prompt.replace(/^@ai\s*/i, '').trim();
     if (!cleanPrompt) return `नमस्ते ${sender}! मैं GupShupp AI हूँ। आप मुझसे कोई भी सवाल पूछ सकते हैं!`;
+
+    // Security & Length Guard Validation
+    const validation = validateAiPrompt(cleanPrompt, sender);
+    if (!validation.isValid) return validation.reply;
 
     if (geminiClient) {
         try {
@@ -313,6 +354,11 @@ async function generateAiResponse(prompt, sender) {
 // 🎭 Gemini 2.5 Multi-Agent Bot Squad Generator (With Jitter Retry & Instant Fallback)
 async function generateSpecializedBotResponse(botType, prompt, sender) {
     const cleanPrompt = prompt.replace(new RegExp(`^${botType}\\s*`, 'i'), '').trim();
+    
+    // Security & Length Guard Validation
+    const validation = validateAiPrompt(cleanPrompt, sender);
+    if (!validation.isValid) return validation.reply;
+
     if (geminiClient) {
         try {
             let systemPrompt = '';
