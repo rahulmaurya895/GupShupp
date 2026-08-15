@@ -1891,8 +1891,8 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`==========================================`);
-    console.log(`🚀 GupShupp ENTERPRISE PRO SERVER LIVE on Port ${PORT} [PID: ${process.pid}]`);
+    console.log(`🚀 GupShupp ENTERPRISE PRO SERVER LIVE on http://localhost:${PORT} (0.0.0.0) [PID: ${process.pid}]`);
     console.log(`==========================================`);
 });
