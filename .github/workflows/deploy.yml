@@ -55,6 +55,7 @@ jobs:
             CLUSTER_MODE=true
             MONGO_URI=${{ secrets.MONGO_URI }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
             EOF

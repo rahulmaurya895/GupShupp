@@ -226,7 +226,7 @@ const TRANSLATIONS = {
     channels: 'Channels',
     profile: 'Profile',
     search_placeholder: 'Search chats, contacts, or messages...',
-    type_message_placeholder: 'Type a message or ask @ai...',
+    type_message_placeholder: 'Type a message or ask @gp...',
     send: 'Send',
     online: 'Online',
     offline: 'Offline',
@@ -262,7 +262,7 @@ const TRANSLATIONS = {
     channels: 'चैनल्स',
     profile: 'प्रोफाइल',
     search_placeholder: 'चैट्स, कॉन्टैक्ट्स या मैसेज खोजें...',
-    type_message_placeholder: 'मैसेज लिखें या @ai सवाल पूछें...',
+    type_message_placeholder: 'मैसेज लिखें या @gp सवाल पूछें...',
     send: 'भेजें',
     online: 'ऑनलाइन',
     offline: 'ऑफलाइन',
@@ -1811,7 +1811,7 @@ export default function App() {
     lastActionTapTimeRef.current = now;
 
     const messageTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const isAiTrigger = type === 'text' && /^(@ai|@coder|@meme|@news|@roast)\b/i.test(message.trim());
+    const isAiTrigger = type === 'text' && /^(@gp|@ai|@coder|@meme|@news|@roast)\b/i.test(message.trim());
     const processedText = isAiTrigger ? message : encryptText(message);
     const msgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
@@ -3520,7 +3520,7 @@ export default function App() {
         <View style={[styles.aiBotSquadBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 4 }}>
             {[
-              { tag: '@ai', label: '🤖 @ai (General)' },
+              { tag: '@gp', label: '🤖 @gp (GP AI)' },
               { tag: '@coder', label: '💻 @coder (Dev)' },
               { tag: '@meme', label: '🎭 @meme (Comedy)' },
               { tag: '@news', label: '📰 @news (Desk)' },

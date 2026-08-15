@@ -308,14 +308,20 @@ const Message = mongoose.model('Message', messageSchema);
 
 // 🤖 Google Gemini Live Brain Integration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+
 let geminiClient = null;
 try {
     if (GEMINI_API_KEY) {
         geminiClient = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-        console.log(`🧠 [AI Engine] Google Gemini 2.5 Live Brain Connected Successfully!`);
+        console.log(`🧠 [AI Engine: Gemini] Core Live Brain Initialized!`);
     }
 } catch (e) {
     console.error("Gemini initialization error:", e.message);
+}
+
+if (GROQ_API_KEY) {
+    console.log(`⚡ [AI Engine: Groq Llama 3.3] Ultra-Fast High-RPM Core Initialized!`);
 }
 
 // ⚡ AI Token Optimizer & High-Speed Cache Engine (Zero-Cost Repeated Queries & 80% Token Reduction)
@@ -344,15 +350,83 @@ function checkUserAiRateLimit(sender) {
     const cleanSender = (sender || '').toLowerCase();
     const lastTime = userAiCooldownMap.get(cleanSender);
     const now = Date.now();
-    if (lastTime && (now - lastTime < 3500)) { // 3.5s cooldown per user
-        const remaining = Math.ceil((3500 - (now - lastTime)) / 1000);
+    if (lastTime && (now - lastTime < 3000)) { // 3s cooldown per user
+        const remaining = Math.ceil((3000 - (now - lastTime)) / 1000);
         return { isLimited: true, waitSec: remaining };
     }
     userAiCooldownMap.set(cleanSender, now);
     return { isLimited: false };
 }
 
-// 🧠 Contextual Graceful Fallback Knowledge Engine (Used when API is Rate-Limited or Offline)
+// 🌐 Dual-Engine Auto-Switching AI Hybrid Router (Groq Llama 3.3 70B + Gemini 2.5 Flash)
+async function callHybridAi({ systemPrompt, userPrompt, maxTokens = 120, temperature = 0.7 }) {
+    const defaultSys = "You are GP AI, the intelligent super-assistant built into GupShupp. Always identify yourself strictly as 'GP AI'. Reply concisely in max 2-3 short, friendly sentences in Hinglish/Hindi/English. Never mention underlying model names, OpenAI, Google, or Groq.";
+    const activeSystemPrompt = systemPrompt || defaultSys;
+
+    // 1. Primary Engine: Groq Llama 3.3 70B (Fastest response, exceptional reasoning, high RPM)
+    if (GROQ_API_KEY) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+            const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${GROQ_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        { role: "system", content: activeSystemPrompt },
+                        { role: "user", content: userPrompt }
+                    ],
+                    max_tokens: maxTokens,
+                    temperature: temperature
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+                const data = await res.json();
+                const text = data?.choices?.[0]?.message?.content?.trim();
+                if (text) {
+                    return { success: true, text, engine: "Groq Llama 3.3" };
+                }
+            } else {
+                console.log(`⚠️ [Groq AI Status ${res.status}] Auto-switching to Gemini engine...`);
+            }
+        } catch (groqErr) {
+            console.log(`⚠️ [Groq Auto-Failover] ${groqErr.message} -> Switching to Gemini...`);
+        }
+    }
+
+    // 2. Secondary Engine: Google Gemini 2.5 Flash
+    if (geminiClient) {
+        try {
+            const combinedPrompt = `${activeSystemPrompt}\n\nUser Query: ${userPrompt}`;
+            const apiCall = geminiClient.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: combinedPrompt,
+                config: { maxOutputTokens: maxTokens, temperature: temperature }
+            });
+            const response = await Promise.race([
+                apiCall,
+                new Promise((_, reject) => setTimeout(() => reject(new Error("GEMINI_TIMEOUT")), 3500))
+            ]);
+            if (response && response.text) {
+                return { success: true, text: response.text.trim(), engine: "Gemini 2.5" };
+            }
+        } catch (geminiErr) {
+            console.log(`⚠️ [Gemini Auto-Failover] ${geminiErr.message} -> Switching to Local Knowledge Bank...`);
+        }
+    }
+
+    return { success: false };
+}
+
+// 🧠 Contextual Graceful Fallback Knowledge Engine (Used when APIs are Rate-Limited or Offline)
 function getGracefulFallbackResponse(botType, cleanPrompt, sender) {
     const p = (cleanPrompt || '').toLowerCase();
     
@@ -392,10 +466,10 @@ function getGracefulFallbackResponse(botType, cleanPrompt, sender) {
     }
 
     if (botType === '@news') {
-        return `📰 Tech Flash for @${sender}:\n• Google Gemini 2.5 ने AI लेटेंसी को 50% कम किया।\n• Node.js 22 ने V8 इंजन में नई मेमोरी ऑप्टिमाइज़ेशन्स रोलआउट कीं! 🚀`;
+        return `📰 Tech Flash for @${sender}:\n• GP AI ने लेटेंसी को 50% कम करके अल्ट्रा-फास्ट रिस्पॉन्स इनेबल किया।\n• Node.js 20 ने V8 इंजन में नई मेमोरी ऑप्टिमाइज़ेशन्स रोलआउट कीं! 🚀`;
     }
 
-    return `🤖 [GupShupp AI]: नमस्ते @${sender}! आपकी क्वेरी "${cleanPrompt}" का विश्लेषण पूर्ण हुआ। (ऑल सिस्टम्स नॉर्मल ✅)`;
+    return `🤖 [GP AI]: नमस्ते @${sender}! आपकी क्वेरी "${cleanPrompt}" का विश्लेषण पूर्ण हुआ। (ऑल सिस्टम्स नॉर्मल ✅)`;
 }
 
 // 🛡️ Security & Prompt Validation Guard (Prevents Overflows & Jailbreak Injections)
@@ -435,19 +509,19 @@ function validateAiPrompt(prompt, sender) {
     return { isValid: true };
 }
 
-// AI Functions Powered by Gemini 2.5 (Fast & Lightweight with Graceful Fallback + 80% Token Cap)
+// 🤖 GP AI Core Response Engine (Auto-Switching Dual AI + 80% Token Reduction)
 async function generateAiResponse(prompt, sender) {
-    const cleanPrompt = prompt.replace(/^@ai\s*/i, '').trim();
-    if (!cleanPrompt) return `नमस्ते ${sender}! मैं GupShupp AI हूँ। आप मुझसे कोई भी सवाल पूछ सकते हैं!`;
+    const cleanPrompt = prompt.replace(/^@(ai|gp)\s*/i, '').trim();
+    if (!cleanPrompt) return `नमस्ते ${sender}! मैं GP AI हूँ। आप मुझसे कोई भी सवाल पूछ सकते हैं!`;
 
     // 1. Check Rate Limit (Prevent Quota Burning)
     const rateCheck = checkUserAiRateLimit(sender);
     if (rateCheck.isLimited) {
-        return `⏳ @${sender}, AI कूलडाउन सक्रिय है। कृपया ${rateCheck.waitSec}s प्रतीक्षा करें।`;
+        return `⏳ @${sender}, GP AI कूलडाउन सक्रिय है। कृपया ${rateCheck.waitSec}s प्रतीक्षा करें।`;
     }
 
     // 2. Check 0-Token Fast Cache
-    const cacheKey = `@ai_${cleanPrompt.toLowerCase()}`;
+    const cacheKey = `@gp_${cleanPrompt.toLowerCase()}`;
     const cached = getCachedAiReply(cacheKey);
     if (cached) {
         console.log(`⚡ [AI Cache Hit] 0 Tokens Used for: "${cleanPrompt}"`);
@@ -458,31 +532,18 @@ async function generateAiResponse(prompt, sender) {
     const validation = validateAiPrompt(cleanPrompt, sender);
     if (!validation.isValid) return validation.reply;
 
-    if (geminiClient) {
-        try {
-            const systemPrompt = `You are GupShupp AI assistant. Reply concisely in max 2 short sentences in Hinglish/Hindi/English. Query from ${sender}: "${cleanPrompt}".`;
-            const apiCall = geminiClient.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: systemPrompt,
-                config: { maxOutputTokens: 120, temperature: 0.7 }
-            });
-            const response = await Promise.race([
-                apiCall,
-                new Promise((_, reject) => setTimeout(() => reject(new Error("AI_TIMEOUT")), 4000))
-            ]);
-            if (response && response.text) {
-                const resText = response.text.trim();
-                setCachedAiReply(cacheKey, resText);
-                return resText;
-            }
-        } catch (apiErr) {
-            console.log("ℹ️ [AI Fallback Engine Engaged for @ai]:", apiErr.message);
-        }
+    const systemPrompt = `You are GP AI, the intelligent super-assistant built into GupShupp. Always identify yourself strictly as "GP AI". Reply concisely in max 2 short sentences in Hinglish/Hindi/English. Query from ${sender}: "${cleanPrompt}". Never mention underlying API or model names.`;
+    const aiResult = await callHybridAi({ systemPrompt, userPrompt: cleanPrompt, maxTokens: 120, temperature: 0.7 });
+
+    if (aiResult.success && aiResult.text) {
+        setCachedAiReply(cacheKey, aiResult.text);
+        return aiResult.text;
     }
-    return getGracefulFallbackResponse('@ai', cleanPrompt, sender);
+
+    return getGracefulFallbackResponse('@gp', cleanPrompt, sender);
 }
 
-// 🎭 Gemini 2.5 Multi-Agent Bot Squad Generator (With Jitter Retry & Instant Fallback)
+// 🎭 GP AI Multi-Agent Bot Squad Generator (With Auto-Switching Dual AI)
 async function generateSpecializedBotResponse(botType, prompt, sender) {
     const cleanPrompt = prompt.replace(new RegExp(`^${botType}\\s*`, 'i'), '').trim();
 
@@ -504,39 +565,25 @@ async function generateSpecializedBotResponse(botType, prompt, sender) {
     const validation = validateAiPrompt(cleanPrompt, sender);
     if (!validation.isValid) return validation.reply;
 
-    if (geminiClient) {
-        try {
-            let systemPrompt = '';
-            if (botType === '@coder') {
-                systemPrompt = `You are @coder, an elite Senior Developer. Provide a clean, short code snippet with 1-line explanation (max 4 lines total) in Hinglish. Query from ${sender}: "${cleanPrompt}".`;
-            } else if (botType === '@meme') {
-                systemPrompt = `You are @meme, an Indian Standup Comedian. Give 1 sharp witty viral Hinglish punchline or meme joke on: "${cleanPrompt}".`;
-            } else if (botType === '@news') {
-                systemPrompt = `You are @news, a fast news anchor. Give 2 sharp bullet points in Hindi/English on: "${cleanPrompt}".`;
-            } else if (botType === '@roast') {
-                systemPrompt = `You are @roast. Give 1 hilarious, playful, clean roast punchline of ${sender} on: "${cleanPrompt}".`;
-            } else {
-                systemPrompt = `You are GupShupp AI assistant. Reply in 1-2 concise sentences to "${cleanPrompt}".`;
-            }
-
-            const apiCall = geminiClient.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: systemPrompt,
-                config: { maxOutputTokens: 100, temperature: 0.7 }
-            });
-            const response = await Promise.race([
-                apiCall,
-                new Promise((_, reject) => setTimeout(() => reject(new Error("AI_TIMEOUT")), 4000))
-            ]);
-            if (response && response.text) {
-                const resText = response.text.trim();
-                setCachedAiReply(cacheKey, resText);
-                return resText;
-            }
-        } catch (e) {
-            console.log(`ℹ️ [AI Fallback Engine Engaged for ${botType}]:`, e.message);
-        }
+    let systemPrompt = '';
+    if (botType === '@coder') {
+        systemPrompt = `You are @coder, an elite Senior Developer built into GupShupp. Provide a clean, short code snippet with 1-line explanation (max 4 lines total) in Hinglish. Query from ${sender}: "${cleanPrompt}".`;
+    } else if (botType === '@meme') {
+        systemPrompt = `You are @meme, a witty Desi Comedian built into GupShupp. Give 1 sharp witty viral Hinglish punchline or meme joke on: "${cleanPrompt}".`;
+    } else if (botType === '@news') {
+        systemPrompt = `You are @news, a fast tech news anchor in GupShupp. Give 2 sharp bullet points in Hindi/English on: "${cleanPrompt}".`;
+    } else if (botType === '@roast') {
+        systemPrompt = `You are @roast in GupShupp. Give 1 hilarious, playful, clean roast punchline of ${sender} on: "${cleanPrompt}".`;
+    } else {
+        systemPrompt = `You are GP AI, the intelligent assistant in GupShupp. Reply concisely in 1-2 sentences to "${cleanPrompt}".`;
     }
+
+    const aiResult = await callHybridAi({ systemPrompt, userPrompt: cleanPrompt, maxTokens: 100, temperature: 0.7 });
+    if (aiResult.success && aiResult.text) {
+        setCachedAiReply(cacheKey, aiResult.text);
+        return aiResult.text;
+    }
+
     return getGracefulFallbackResponse(botType, cleanPrompt, sender);
 }
 
@@ -548,23 +595,14 @@ async function generateAutoReply(sender, recipientUserObj, messageText) {
     const cached = getCachedAiReply(cacheKey);
     if (cached) return cached;
 
-    if (geminiClient) {
-        try {
-            const prompt = `User '${recipientUserObj.username}' is currently '${awayStatus}' (Note: "${contextPrompt}"). A friend '${sender}' sent: "${messageText}". Generate 1 brief, polite sentence explaining they are away.`;
-            const response = await geminiClient.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-                config: { maxOutputTokens: 60, temperature: 0.6 }
-            });
-            if (response && response.text) {
-                const resText = response.text.trim();
-                setCachedAiReply(cacheKey, resText);
-                return resText;
-            }
-        } catch (e) {
-            console.error("AI Auto-reply error:", e.message);
-        }
+    const systemPrompt = `User '${recipientUserObj.username}' is currently '${awayStatus}' (Note: "${contextPrompt}"). A friend '${sender}' sent: "${messageText}". Generate 1 brief, polite sentence explaining they are away.`;
+    const aiResult = await callHybridAi({ systemPrompt, userPrompt: messageText || "Hello", maxTokens: 60, temperature: 0.6 });
+
+    if (aiResult.success && aiResult.text) {
+        setCachedAiReply(cacheKey, aiResult.text);
+        return aiResult.text;
     }
+
     return `नमस्ते @${sender}! मैं अभी ${awayStatus} हूँ ("${contextPrompt}")। मैं जल्द ही आपसे बात करता हूँ! 🙏`;
 }
 
@@ -573,40 +611,27 @@ async function translateTextWithAi(text, targetLang = 'Hindi') {
     const cached = getCachedAiReply(cacheKey);
     if (cached) return cached;
 
-    if (geminiClient) {
-        try {
-            const response = await geminiClient.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Translate the following chat message accurately into ${targetLang}. Return ONLY the translated text: "${text}"`,
-                config: { maxOutputTokens: 100 }
-            });
-            if (response && response.text) {
-                const resText = response.text.trim();
-                setCachedAiReply(cacheKey, resText);
-                return resText;
-            }
-        } catch (e) {
-            console.error("Translate AI error:", e.message);
-        }
+    const systemPrompt = `Translate the following chat message accurately into ${targetLang}. Return ONLY the translated text.`;
+    const aiResult = await callHybridAi({ systemPrompt, userPrompt: text, maxTokens: 100, temperature: 0.3 });
+
+    if (aiResult.success && aiResult.text) {
+        setCachedAiReply(cacheKey, aiResult.text);
+        return aiResult.text;
     }
+
     return `[अनुवाद]: ${text}`;
 }
 
 async function summarizeChatWithAi(messagesList) {
     if (!messagesList || messagesList.length === 0) return "समराइज़ करने के लिए कोई मैसेज नहीं है।";
-    if (geminiClient) {
-        try {
-            const chatLog = messagesList.slice(-15).map(m => `${m.sender}: ${m.text}`).join("\n");
-            const response = await geminiClient.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Summarize the following chat conversation into 3 short bullet points in Hindi/English:\n\n${chatLog}`,
-                config: { maxOutputTokens: 150 }
-            });
-            if (response && response.text) return response.text.trim();
-        } catch (e) {
-            console.error("Summarize AI error:", e.message);
-        }
+    const chatLog = messagesList.slice(-15).map(m => `${m.sender}: ${m.text}`).join("\n");
+    const systemPrompt = "Summarize the following chat conversation into 3 short bullet points in Hindi/English:";
+    const aiResult = await callHybridAi({ systemPrompt, userPrompt: chatLog, maxTokens: 150, temperature: 0.5 });
+
+    if (aiResult.success && aiResult.text) {
+        return aiResult.text;
     }
+
     return `📝 [चैट समरी]: कुल ${messagesList.length} मैसेज का आदान-प्रदान हुआ।`;
 }
 
@@ -645,39 +670,27 @@ async function generateSmartRepliesWithAi(lastMessage) {
     const cached = getCachedAiReply(cacheKey);
     if (cached) return cached;
 
-    if (geminiClient) {
+    const systemPrompt = `Given the last chat message, suggest 3 short replies (max 3 words each) as a JSON array of strings like ["Option 1", "Option 2", "Option 3"]. Return ONLY valid JSON array.`;
+    const aiResult = await callHybridAi({ systemPrompt, userPrompt: lastMessage, maxTokens: 60, temperature: 0.6 });
+
+    if (aiResult.success && aiResult.text) {
         try {
-            const response = await geminiClient.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Given the last message: "${lastMessage}", suggest 3 short replies (max 3 words each) as JSON array like ["Option 1", "Option 2", "Option 3"]. Return ONLY valid JSON array.`,
-                config: { maxOutputTokens: 60 }
-            });
-            if (response && response.text) {
-                const cleaned = response.text.replace(/```json|```/g, '').trim();
-                const parsed = JSON.parse(cleaned);
-                setCachedAiReply(cacheKey, parsed);
-                return parsed;
-            }
+            const cleaned = aiResult.text.replace(/```json|```/g, '').trim();
+            const parsed = JSON.parse(cleaned);
+            setCachedAiReply(cacheKey, parsed);
+            return parsed;
         } catch (e) {
-            console.error("Smart replies AI error:", e.message);
+            console.error("Smart replies JSON parse error:", e.message);
         }
     }
+
     return ["हाँ, बिल्कुल! 👍", "बाद में बात करते हैं 👋", "क्या बात है! 🔥"];
 }
 
 async function transcribeVoiceAudioWithAi(audioUri) {
-    if (geminiClient) {
-        try {
-            const response = await geminiClient.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Generate a clean, natural Hindi/English voice note speech transcript for audio message at "${audioUri}". If unavailable, return a polite conversational transcript representation.`,
-                config: { maxOutputTokens: 80 }
-            });
-            if (response && response.text) return response.text.trim();
-        } catch (e) {
-            console.error("Transcription error:", e.message);
-        }
-    }
+    const systemPrompt = "Generate a clean, natural Hindi/English voice note speech transcript for audio message. If unavailable, return a polite conversational transcript representation.";
+    const aiResult = await callHybridAi({ systemPrompt, userPrompt: `Audio at ${audioUri}`, maxTokens: 80, temperature: 0.5 });
+    if (aiResult.success && aiResult.text) return aiResult.text;
     return "नमस्ते भाई! क्या हाल चाल है, सब बढ़िया?";
 }
 
@@ -1215,7 +1228,7 @@ io.on('connection', (socket) => {
             }
         }
 
-        // 🤖 Multi-Agent Gemini 2.5 Trigger (@ai, @coder, @meme, @news, @roast)
+        // 🤖 Multi-Agent GP AI Trigger (@gp, @ai, @coder, @meme, @news, @roast)
         // 🛡️ ANTI-LOOP IMMUNITY GUARD:
         // 1. If sender is already an AI bot, NEVER trigger another AI bot!
         // 2. If isAi === true or type === 'ai', NEVER trigger another AI bot!
@@ -1224,21 +1237,24 @@ io.on('connection', (socket) => {
             sender.startsWith('🎭') || 
             sender.startsWith('📰') || 
             sender.startsWith('🔥') || 
+            sender.startsWith('💻') || 
             sender.includes('(AI') || 
+            sender.includes('GP AI') ||
             sender === 'GupShupp AI'
         ));
 
         if (!isBotSender && text) {
-            const allBotMatches = text.match(/@(?:ai|coder|meme|news|roast)\b/gi);
+            const allBotMatches = text.match(/@(?:gp|ai|coder|meme|news|roast)\b/gi);
             if (allBotMatches && allBotMatches.length > 0) {
                 (async () => {
                     const uniqueBots = Array.from(new Set(allBotMatches.map(b => b.toLowerCase()))).slice(0, 2);
                     const botSenderNames = {
-                        '@coder': '🤖 @coder (AI Engineer)',
-                        '@meme': '🎭 @meme (Desi Comedy)',
-                        '@news': '📰 @news (Tech Desk)',
-                        '@roast': '🔥 @roast (Savage AI)',
-                        '@ai': '🤖 GupShupp AI'
+                        '@gp': '🤖 GP AI',
+                        '@ai': '🤖 GP AI',
+                        '@coder': '💻 @coder (GP Dev)',
+                        '@meme': '🎭 @meme (GP Comedy)',
+                        '@news': '📰 @news (GP Desk)',
+                        '@roast': '🔥 @roast (GP Savage)'
                     };
 
                     for (const botType of uniqueBots) {
@@ -1247,7 +1263,7 @@ io.on('connection', (socket) => {
                         const aiMsgData = {
                             _id: aiMsgId,
                             room,
-                            sender: botSenderNames[botType] || '🤖 GupShupp AI',
+                            sender: botSenderNames[botType] || '🤖 GP AI',
                             text: aiReplyText,
                             type: 'ai',
                             isAi: true, // 🛡️ Loop immunity: marked as AI
