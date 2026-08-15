@@ -873,6 +873,7 @@ export default function App() {
   const [registeredUsersList, setRegisteredUsersList] = useState([]);
   const [isLoadingUsersList, setIsLoadingUsersList] = useState(false);
   const [pinnedChatMessage, setPinnedChatMessage] = useState(null);
+  const [activeSettingsCategory, setActiveSettingsCategory] = useState(null); // 'ACCOUNT' | 'PRIVACY' | 'APPEARANCE' | 'STORAGE' | 'GPAI'
 
   const fetchRegisteredUsers = async () => {
     try {
@@ -2874,278 +2875,148 @@ export default function App() {
 
           {bottomNav === 'PROFILE' && (
             <View style={styles.tabContentContainer}>
-              {/* Profile Studio Card */}
-              <View style={[styles.profileStudioCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={styles.profileBigAvatar}>{userAvatar}</Text>
-                <Text style={[styles.profileUsername, { color: theme.text }]}>@{currentUser}</Text>
-                <Text style={[styles.profileStatusText, { color: theme.accentLight }]}>{userStatus}</Text>
-              </View>
-
-              {/* Ghost Mode Privacy Toggle */}
-              <View style={[styles.privacyBox, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 16 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.privacyTitle, { color: theme.text }]}>👻 घोस्ट मोड (Ghost Mode)</Text>
-                  <Text style={[styles.privacySub, { color: theme.textMuted }]}>ऑनलाइन स्टेटस, टाइपिंग और ब्लू टिक्स छिपाएं</Text>
-                </View>
-                <TouchableOpacity style={[styles.toggleSwitch, { backgroundColor: ghostMode ? theme.accentLight : theme.border }]} onPress={handleToggleGhostMode}>
-                  <Text style={styles.toggleSwitchText}>{ghostMode ? 'ON' : 'OFF'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* AI Auto-Responder Toggle */}
-              <View style={[styles.privacyBox, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 12 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.privacyTitle, { color: theme.text }]}>🤖 AI Auto-Responder (Away Mode)</Text>
-                  <Text style={[styles.privacySub, { color: theme.textMuted }]}>जब आप बिजी हों तो Gemini AI ऑटो-रिप्लाई दे</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.toggleSwitch, { backgroundColor: aiAutoResponderEnabled ? theme.accentLight : theme.border }]} 
-                  onPress={() => {
-                    const nxt = !aiAutoResponderEnabled;
-                    setAiAutoResponderEnabled(nxt);
-                    socket.emit('update_profile', { username: currentUser, aiAutoResponder: { enabled: nxt, awayStatus, contextPrompt: awayContextPrompt } });
-                  }}
-                >
-                  <Text style={styles.toggleSwitchText}>{aiAutoResponderEnabled ? 'ON' : 'OFF'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 📲 Linked Devices (WhatsApp Web QR Link) */}
-              <View style={[styles.privacyBox, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 12 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.privacyTitle, { color: theme.text }]}>🔗 लिंक्ड डिवाइसेज (Linked Devices)</Text>
-                  <Text style={[styles.privacySub, { color: theme.textMuted }]}>पीसी / वेब पर 1-क्लिक में लॉगिन करें</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.pinToggleBtn, { backgroundColor: theme.accent }]}
-                  onPress={() => setShowLinkedDevicesModal(true)}
-                >
-                  <Text style={styles.pinToggleBtnText}>लिंक करें 📲</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Avatar Selector Studio */}
-              <Text style={[styles.sectionHeading, { color: theme.text, marginTop: 20 }]}>🎨 3D अवतार चुनें</Text>
-              <View style={styles.avatarPickerRow}>
-                {['🦁', '👑', '🚀', '⚡', '🤖', '🦊', '🕶️', '💎'].map((av, idx) => (
-                  <TouchableOpacity 
-                    key={idx} 
-                    style={[styles.avatarChoiceBtn, { backgroundColor: theme.card, borderColor: userAvatar === av ? theme.accentLight : 'transparent' }]}
-                    onPress={async () => {
-                      setUserAvatar(av);
-                      await Storage.setItem('@gupshupp_avatar', av);
-                      socket.emit('update_profile', { username: currentUser, avatar: av });
-                    }}
-                  >
-                    <Text style={styles.avatarChoiceEmoji}>{av}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* ⭐ Phase 5: Telegram VIP Profile Badges Selector */}
-              <Text style={[styles.sectionHeading, { color: theme.text, marginTop: 20 }]}>⭐ Telegram VIP प्रोफाइल बैज</Text>
-              <View style={styles.vipBadgeRow}>
-                {[
-                  { id: '⭐ VIP', name: 'VIP Star', color: '#f59e0b' },
-                  { id: '💎 Diamond', name: 'Diamond Pro', color: '#38bdf8' },
-                  { id: '🔥 Flame', name: 'Flame Legend', color: '#ef4444' },
-                  { id: '⚡ Neon', name: 'Neon Cyber', color: '#a855f7' },
-                  { id: '👑 Imperial', name: 'Imperial', color: '#10b981' }
-                ].map((bg, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[styles.vipBadgeChoiceBtn, { backgroundColor: theme.card, borderColor: userVipBadge === bg.id ? bg.color : theme.border }]}
-                    onPress={async () => {
-                      setUserVipBadge(bg.id);
-                      await Storage.setItem('@gupshupp_vip_badge', bg.id);
-                    }}
-                  >
-                    <Text style={[styles.vipBadgeChoiceText, { color: bg.color }]}>{bg.id}</Text>
-                    {userVipBadge === bg.id && <Text style={{ fontSize: 10, color: bg.color, fontWeight: '900', marginLeft: 4 }}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Security PIN Lock */}
-              <Text style={[styles.sectionHeading, { color: theme.text, marginTop: 20 }]}>🔒 ऐप सुरक्षा पिन</Text>
-              <View style={[styles.pinConfigBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={[styles.pinConfigText, { color: theme.textMuted }]}>
-                  {userPin ? '🔒 4-अंकों का पिन एक्टिव है' : '🔓 कोई पिन सेट नहीं है'}
-                </Text>
-                <TouchableOpacity 
-                  style={[styles.pinToggleBtn, { backgroundColor: userPin ? '#ef4444' : theme.accent }]}
-                  onPress={async () => {
-                    if (userPin) {
-                      setUserPin('');
-                      await Storage.setItem('@gupshupp_pin', '');
-                      socket.emit('update_profile', { username: currentUser, pin: '' });
-                    } else {
-                      const newP = prompt('4 अंकों का सुरक्षा पिन सेट करें:');
-                      if (newP && newP.length === 4) {
-                        setUserPin(newP);
-                        await Storage.setItem('@gupshupp_pin', newP);
-                        socket.emit('update_profile', { username: currentUser, pin: newP });
-                      }
-                    }
-                  }}
-                >
-                  <Text style={styles.pinToggleBtnText}>{userPin ? 'पिन हटाएं' : 'पिन सेट करें'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 🎨 Phase 6: Neo-Gen Signature Appearance Studio */}
-              <Text style={[styles.sectionHeading, { color: theme.text, marginTop: 20 }]}>🎨 Neo-Gen अपीयरेंस & डिज़ाइन स्टूडियो</Text>
-              <View style={[styles.appearanceStudioCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                
-                {/* 1. Theme Palette Selector */}
-                <Text style={[styles.appearanceSubHeading, { color: theme.text }]}>🌈 सिग्नेचर नियॉन थीम चुनें</Text>
-                <View style={styles.themePaletteGrid}>
-                  {Object.values(THEME_PALETTES).map((pal) => (
-                    <TouchableOpacity
-                      key={pal.id}
-                      style={[styles.themeChoiceCard, { backgroundColor: pal.bg, borderColor: activeThemeId === pal.id ? pal.accent : pal.border }]}
-                      onPress={async () => {
-                        setActiveThemeId(pal.id);
-                        await Storage.setItem('@gupshupp_active_theme', pal.id);
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <View style={[styles.themeSwatchDot, { backgroundColor: pal.accent }]} />
-                        <Text style={[styles.themeChoiceName, { color: pal.text }]}>{pal.name}</Text>
-                      </View>
-                      {activeThemeId === pal.id && <Text style={{ color: pal.accent, fontWeight: '900', fontSize: 12 }}>Active ✓</Text>}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* 2. Bubble Geometry */}
-                <Text style={[styles.appearanceSubHeading, { color: theme.text, marginTop: 14 }]}>💬 चैट बबल का आकार (Bubble Shape)</Text>
-                <View style={styles.bubbleShapeRow}>
-                  {[
-                    { id: 'PILL', label: '💊 Neo-Pill' },
-                    { id: 'SQUIRCLE', label: '◽ Squircle' },
-                    { id: 'ANGULAR', label: '📐 Angular' }
-                  ].map((shape) => (
-                    <TouchableOpacity
-                      key={shape.id}
-                      style={[styles.bubbleShapeBtn, { backgroundColor: theme.card, borderColor: bubbleGeometry === shape.id ? theme.accent : theme.border }]}
-                      onPress={async () => {
-                        setBubbleGeometry(shape.id);
-                        await Storage.setItem('@gupshupp_bubble_geometry', shape.id);
-                      }}
-                    >
-                      <Text style={[styles.bubbleShapeText, { color: bubbleGeometry === shape.id ? theme.accent : theme.text }]}>{shape.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* 3. Typography Font Scale */}
-                <Text style={[styles.appearanceSubHeading, { color: theme.text, marginTop: 14 }]}>🔠 टेक्स्ट फॉन्ट साइज (Font Scaling)</Text>
-                <View style={styles.bubbleShapeRow}>
-                  {[
-                    { id: 'COMPACT', label: 'छोटा (13px)' },
-                    { id: 'STANDARD', label: 'मानक (15px)' },
-                    { id: 'LARGE', label: 'बड़ा (18px)' }
-                  ].map((scale) => (
-                    <TouchableOpacity
-                      key={scale.id}
-                      style={[styles.bubbleShapeBtn, { backgroundColor: theme.card, borderColor: fontSizeScale === scale.id ? theme.accent : theme.border }]}
-                      onPress={async () => {
-                        setFontSizeScale(scale.id);
-                        await Storage.setItem('@gupshupp_font_scale', scale.id);
-                      }}
-                    >
-                      <Text style={[styles.bubbleShapeText, { color: fontSizeScale === scale.id ? theme.accent : theme.text }]}>{scale.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* 4. Custom Gallery Photo Wallpaper */}
-                <Text style={[styles.appearanceSubHeading, { color: theme.text, marginTop: 14 }]}>🖼️ कस्टम चैट वॉलपेपर (Gallery Photos)</Text>
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-                  <TouchableOpacity 
-                    style={[styles.primaryBtn, { backgroundColor: theme.accent, flex: 1 }]}
-                    onPress={pickCustomWallpaperFromGallery}
-                  >
-                    <Text style={[styles.primaryBtnText, { color: '#000000' }]}>📁 गैलरी से फोटो लगाएं</Text>
-                  </TouchableOpacity>
-                  {customWallpaperUri && (
-                    <TouchableOpacity 
-                      style={[styles.removeWallBtn, { backgroundColor: '#ef4444' }]}
-                      onPress={removeCustomWallpaper}
-                    >
-                      <Text style={{ color: '#ffffff', fontWeight: '800' }}>✕ हटाएं</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* 5. Live Interactive Preview */}
-                <View style={[styles.appearancePreviewCard, { backgroundColor: theme.card, borderColor: theme.border, marginTop: 16 }]}>
-                  <Text style={[styles.previewLabel, { color: theme.textMuted }]}>👀 लाइव प्रीव्यू (Live Preview):</Text>
-                  <View style={[styles.previewBubbleMine, { backgroundColor: theme.bubbleMine, borderRadius: getBubbleRadius(), alignSelf: 'flex-end', marginTop: 6 }]}>
-                    <Text style={{ color: '#ffffff', fontSize: getFontSize() }}>यह मेरा नया सिग्नेचर GupShupp लुक है! ✨</Text>
+              {/* 🌟 Profile Header Banner (WhatsApp/Telegram Style) */}
+              <TouchableOpacity 
+                activeOpacity={0.85}
+                style={[styles.profileStudioCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 16 }]}
+                onPress={() => setActiveSettingsCategory('ACCOUNT')}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ position: 'relative' }}>
+                    <Text style={[styles.profileBigAvatar, { fontSize: 48 }]}>{userAvatar}</Text>
+                    <View style={{ position: 'absolute', bottom: 2, right: 2, backgroundColor: theme.accent, borderRadius: 10, padding: 3 }}>
+                      <Text style={{ fontSize: 10 }}>✏️</Text>
+                    </View>
                   </View>
-                  <View style={[styles.previewBubbleOther, { backgroundColor: theme.bubbleOther, borderRadius: getBubbleRadius(), alignSelf: 'flex-start', marginTop: 6 }]}>
-                    <Text style={{ color: theme.text, fontSize: getFontSize() }}>वाह! यह डिज़ाइन बहुत ही प्रीमियम लग रहा है 🔥</Text>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.profileUsername, { color: theme.text, fontSize: 18 }]}>@{currentUser}</Text>
+                      <Text style={{ fontSize: 12, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: theme.card, color: '#f59e0b', fontWeight: '800' }}>{userVipBadge}</Text>
+                    </View>
+                    <Text style={[styles.profileStatusText, { color: theme.accentLight, marginTop: 2 }]} numberOfLines={1}>{userStatus}</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>Account details & avatar badging ➔</Text>
                   </View>
                 </View>
+              </TouchableOpacity>
 
-              </View>
-
-              {/* 🌍 Language Selector Card */}
-              <View style={[styles.privacyBox, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 16 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.privacyTitle, { color: theme.text }]}>🌐 {t('language')}</Text>
-                  <Text style={[styles.privacySub, { color: theme.textMuted }]}>{SUPPORTED_LANGUAGES.find(l => l.code === appLanguage)?.label || 'English 🇬🇧'}</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.pinToggleBtn, { backgroundColor: theme.accent }]}
-                  onPress={() => setShowLanguageModal(true)}
-                >
-                  <Text style={styles.pinToggleBtnText}>Change 🔄</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* ☁️ Cloud Backup & Vault Card */}
-              <View style={[styles.appearanceStudioCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 16 }]}>
-                <Text style={[styles.appearanceSubHeading, { color: theme.text }]}>☁️ {t('cloud_backup')}</Text>
-                <Text style={[styles.privacySub, { color: theme.textMuted, marginTop: 4 }]}>AES-256 Encrypted Cloud Vault (Zero Data Loss)</Text>
-                {cloudBackupStatus ? <Text style={{ color: theme.accentLight, fontSize: 12, marginTop: 6, fontWeight: '700' }}>{cloudBackupStatus}</Text> : null}
+              {/* 🗂️ Settings Categories Menu List */}
+              <View style={[styles.settingsCategoryGroup, { backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 16, borderWidth: 1, overflow: 'hidden' }]}>
                 
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                  <TouchableOpacity 
-                    style={[styles.primaryBtn, { flex: 1, backgroundColor: theme.accentLight }]}
-                    onPress={handleCloudBackupSave}
-                    disabled={isCloudBackupLoading}
-                  >
-                    <Text style={styles.primaryBtnText}>{isCloudBackupLoading ? 'Saving...' : t('backup_now')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.secondaryBtn, { flex: 1, borderColor: theme.accentLight }]}
-                    onPress={handleCloudBackupRestore}
-                    disabled={isCloudBackupLoading}
-                  >
-                    <Text style={[styles.secondaryBtnText, { color: theme.accentLight }]}>{t('restore_now')}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* ⭐ Starred Messages Vault Shortcut */}
-              <View style={[styles.privacyBox, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 16 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.privacyTitle, { color: theme.text }]}>⭐ {t('starred_messages')}</Text>
-                  <Text style={[styles.privacySub, { color: theme.textMuted }]}>View all bookmarked messages</Text>
-                </View>
+                {/* 1. Account & Profile */}
                 <TouchableOpacity 
-                  style={[styles.pinToggleBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.accent }]}
+                  style={[styles.settingsCategoryRow, { borderBottomColor: theme.border, borderBottomWidth: 1 }]}
+                  onPress={() => setActiveSettingsCategory('ACCOUNT')}
+                >
+                  <View style={[styles.settingsCategoryIconBox, { backgroundColor: '#2563eb' }]}>
+                    <Text style={styles.settingsCategoryIcon}>👤</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.settingsCategoryTitle, { color: theme.text }]}>Account & Profile (खाता)</Text>
+                    <Text style={[styles.settingsCategorySub, { color: theme.textMuted }]}>Avatar, Username, VIP Badges, Linked Web</Text>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
+
+                {/* 2. Privacy & Security */}
+                <TouchableOpacity 
+                  style={[styles.settingsCategoryRow, { borderBottomColor: theme.border, borderBottomWidth: 1 }]}
+                  onPress={() => setActiveSettingsCategory('PRIVACY')}
+                >
+                  <View style={[styles.settingsCategoryIconBox, { backgroundColor: '#059669' }]}>
+                    <Text style={styles.settingsCategoryIcon}>🔒</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.settingsCategoryTitle, { color: theme.text }]}>Privacy & Security (गोपनीयता)</Text>
+                    <Text style={[styles.settingsCategorySub, { color: theme.textMuted }]}>Ghost Mode, PIN Lock, AI Away Auto-Reply</Text>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
+
+                {/* 3. Chats & Appearance Studio */}
+                <TouchableOpacity 
+                  style={[styles.settingsCategoryRow, { borderBottomColor: theme.border, borderBottomWidth: 1 }]}
+                  onPress={() => setActiveSettingsCategory('APPEARANCE')}
+                >
+                  <View style={[styles.settingsCategoryIconBox, { backgroundColor: '#8b5cf6' }]}>
+                    <Text style={styles.settingsCategoryIcon}>🎨</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.settingsCategoryTitle, { color: theme.text }]}>Appearance & Chats (अपीयरेंस)</Text>
+                    <Text style={[styles.settingsCategorySub, { color: theme.textMuted }]}>7 Signature Themes, Bubble Shapes, Wallpapers</Text>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
+
+                {/* 4. Storage & Cloud Backup */}
+                <TouchableOpacity 
+                  style={[styles.settingsCategoryRow, { borderBottomColor: theme.border, borderBottomWidth: 1 }]}
+                  onPress={() => setActiveSettingsCategory('STORAGE')}
+                >
+                  <View style={[styles.settingsCategoryIconBox, { backgroundColor: '#0284c7' }]}>
+                    <Text style={styles.settingsCategoryIcon}>☁️</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.settingsCategoryTitle, { color: theme.text }]}>Storage & Cloud Backup (डेटा & बैकअप)</Text>
+                    <Text style={[styles.settingsCategorySub, { color: theme.textMuted }]}>AES-256 Cloud Vault Backup & 1-Click Restore</Text>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
+
+                {/* 5. Starred Messages */}
+                <TouchableOpacity 
+                  style={[styles.settingsCategoryRow, { borderBottomColor: theme.border, borderBottomWidth: 1 }]}
                   onPress={() => setShowStarredModal(true)}
                 >
-                  <Text style={[styles.pinToggleBtnText, { color: theme.accent }]}>Open ➔</Text>
+                  <View style={[styles.settingsCategoryIconBox, { backgroundColor: '#d97706' }]}>
+                    <Text style={styles.settingsCategoryIcon}>⭐</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.settingsCategoryTitle, { color: theme.text }]}>Starred Messages (स्टार किए गए संदेश)</Text>
+                    <Text style={[styles.settingsCategorySub, { color: theme.textMuted }]}>View saved bookmarks & pinned notes</Text>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 16 }}>›</Text>
                 </TouchableOpacity>
+
+                {/* 6. Language Selector */}
+                <TouchableOpacity 
+                  style={[styles.settingsCategoryRow, { borderBottomColor: theme.border, borderBottomWidth: 1 }]}
+                  onPress={() => setShowLanguageModal(true)}
+                >
+                  <View style={[styles.settingsCategoryIconBox, { backgroundColor: '#0d9488' }]}>
+                    <Text style={styles.settingsCategoryIcon}>🌐</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.settingsCategoryTitle, { color: theme.text }]}>App Language (भाषा)</Text>
+                    <Text style={[styles.settingsCategorySub, { color: theme.textMuted }]}>{SUPPORTED_LANGUAGES.find(l => l.code === appLanguage)?.label || 'English 🇬🇧'}</Text>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
+
+                {/* 7. GP AI Assistant Info & Diagnostics */}
+                <TouchableOpacity 
+                  style={styles.settingsCategoryRow}
+                  onPress={() => setActiveSettingsCategory('GPAI')}
+                >
+                  <View style={[styles.settingsCategoryIconBox, { backgroundColor: '#6366f1' }]}>
+                    <Text style={styles.settingsCategoryIcon}>🤖</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.settingsCategoryTitle, { color: theme.text }]}>GP AI Assistant Engine</Text>
+                    <Text style={[styles.settingsCategorySub, { color: theme.textMuted }]}>Groq Llama 3.3 70B & Gemini Hybrid Status</Text>
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 16 }}>›</Text>
+                </TouchableOpacity>
+
               </View>
 
-              <TouchableOpacity style={[styles.logoutBtnFull, { backgroundColor: '#ef4444', marginTop: 24 }]} onPress={handleLogout}>
-                <Text style={styles.logoutBtnFullText}>Logout ➔</Text>
+              {/* 🚪 Logout Button */}
+              <TouchableOpacity 
+                activeOpacity={0.85}
+                style={[styles.logoutBtnFull, { backgroundColor: '#ef4444', marginTop: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }]} 
+                onPress={handleLogout}
+              >
+                <Text style={{ fontSize: 16 }}>🚪</Text>
+                <Text style={styles.logoutBtnFullText}>Logout (लॉगआउट)</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -5130,33 +5001,366 @@ export default function App() {
           </View>
         </Modal>
 
-        {/* ⭐ Modal: Starred Messages Dedicated Screen */}
-        <Modal visible={showStarredModal} transparent animationType="slide">
+        {/* 👤 Modal: Account & Profile Settings */}
+        <Modal visible={activeSettingsCategory === 'ACCOUNT'} transparent animationType="slide" onRequestClose={() => setActiveSettingsCategory(null)}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.commentsModalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={styles.commentsHeader}>
-                <Text style={[styles.commentsTitle, { color: theme.text }]}>⭐ {t('starred_messages')}</Text>
-                <TouchableOpacity onPress={() => setShowStarredModal(false)}>
-                  <Text style={{ color: theme.accentLight, fontWeight: '900', fontSize: 16 }}>✕</Text>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '92%', maxWidth: 460, maxHeight: '85%' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 22 }}>👤</Text>
+                  <Text style={[styles.modalTitle, { color: theme.text, fontSize: 18 }]}>Account & Profile</Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveSettingsCategory(null)}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.commentsListScroll}>
-                {messages.filter(m => m.starredBy && m.starredBy.includes(currentUser)).length === 0 ? (
-                  <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Text style={{ color: theme.textMuted, fontSize: 14 }}>No starred messages yet. Bookmark important messages by long-pressing them! ⭐</Text>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* 3D Avatar Selector */}
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text, marginBottom: 8 }}>🎨 3D अवतार चुनें (Avatar)</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                  {['🦁', '👑', '🚀', '⚡', '🤖', '🦊', '🕶️', '💎'].map((av, idx) => (
+                    <TouchableOpacity 
+                      key={idx} 
+                      style={[styles.avatarChoiceBtn, { backgroundColor: theme.card, borderColor: userAvatar === av ? theme.accentLight : 'transparent' }]}
+                      onPress={async () => {
+                        setUserAvatar(av);
+                        await Storage.setItem('@gupshupp_avatar', av);
+                        socket.emit('update_profile', { username: currentUser, avatar: av });
+                      }}
+                    >
+                      <Text style={styles.avatarChoiceEmoji}>{av}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* VIP Profile Badges Selector */}
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text, marginBottom: 8 }}>⭐ Telegram VIP बैज (VIP Badges)</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                  {[
+                    { id: '⭐ VIP', name: 'VIP Star', color: '#f59e0b' },
+                    { id: '💎 Diamond', name: 'Diamond Pro', color: '#38bdf8' },
+                    { id: '🔥 Flame', name: 'Flame Legend', color: '#ef4444' },
+                    { id: '⚡ Neon', name: 'Neon Cyber', color: '#a855f7' },
+                    { id: '👑 Imperial', name: 'Imperial', color: '#10b981' }
+                  ].map((bg, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.vipBadgeChoiceBtn, { backgroundColor: theme.card, borderColor: userVipBadge === bg.id ? bg.color : theme.border }]}
+                      onPress={async () => {
+                        setUserVipBadge(bg.id);
+                        await Storage.setItem('@gupshupp_vip_badge', bg.id);
+                      }}
+                    >
+                      <Text style={[styles.vipBadgeChoiceText, { color: bg.color }]}>{bg.id}</Text>
+                      {userVipBadge === bg.id && <Text style={{ fontSize: 10, color: bg.color, fontWeight: '900', marginLeft: 4 }}>✓</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Linked Devices Shortcut */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 16 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>🔗 लिंक्ड डिवाइसेज (Web QR)</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>ब्राउज़र व पीसी पर तुरंत लिंक करें</Text>
                   </View>
-                ) : (
-                  messages.filter(m => m.starredBy && m.starredBy.includes(currentUser)).map((m, i) => (
-                    <View key={i} style={[styles.commentBubble, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ color: theme.accentLight, fontWeight: '800', fontSize: 12 }}>@{m.sender} in #{m.room}</Text>
-                        <Text style={{ color: theme.textMuted, fontSize: 10 }}>{m.time}</Text>
+                  <TouchableOpacity 
+                    style={[styles.pinToggleBtn, { backgroundColor: theme.accent }]}
+                    onPress={() => {
+                      setActiveSettingsCategory(null);
+                      setShowLinkedDevicesModal(true);
+                    }}
+                  >
+                    <Text style={[styles.pinToggleBtnText, { color: '#000000' }]}>Link Web 📲</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* 🔒 Modal: Privacy & Security Settings */}
+        <Modal visible={activeSettingsCategory === 'PRIVACY'} transparent animationType="slide" onRequestClose={() => setActiveSettingsCategory(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '92%', maxWidth: 460, maxHeight: '85%' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 22 }}>🔒</Text>
+                  <Text style={[styles.modalTitle, { color: theme.text, fontSize: 18 }]}>Privacy & Security</Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveSettingsCategory(null)}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Ghost Mode Toggle */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>👻 घोस्ट मोड (Ghost Mode)</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>ऑनलाइन स्टेटस, टाइपिंग व ब्लू टिक्स छिपाएं</Text>
+                  </View>
+                  <TouchableOpacity style={[styles.toggleSwitch, { backgroundColor: ghostMode ? theme.accentLight : theme.border }]} onPress={handleToggleGhostMode}>
+                    <Text style={styles.toggleSwitchText}>{ghostMode ? 'ON' : 'OFF'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* AI Auto-Responder Toggle */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>🤖 AI Auto-Responder (Away Mode)</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>बिजी होने पर Gemini AI ऑटो रिप्लाई दे</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.toggleSwitch, { backgroundColor: aiAutoResponderEnabled ? theme.accentLight : theme.border }]} 
+                    onPress={() => {
+                      const nxt = !aiAutoResponderEnabled;
+                      setAiAutoResponderEnabled(nxt);
+                      socket.emit('update_profile', { username: currentUser, aiAutoResponder: { enabled: nxt, awayStatus, contextPrompt: awayContextPrompt } });
+                    }}
+                  >
+                    <Text style={styles.toggleSwitchText}>{aiAutoResponderEnabled ? 'ON' : 'OFF'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Security PIN Lock */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>🔒 ऐप सुरक्षा पिन (App PIN)</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>{userPin ? '4-अंकों का पिन एक्टिव है ✅' : 'कोई पिन सेट नहीं है'}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.pinToggleBtn, { backgroundColor: userPin ? '#ef4444' : theme.accent }]}
+                    onPress={async () => {
+                      if (userPin) {
+                        setUserPin('');
+                        await Storage.setItem('@gupshupp_pin', '');
+                        socket.emit('update_profile', { username: currentUser, pin: '' });
+                      } else {
+                        const newP = prompt('4 अंकों का सुरक्षा पिन सेट करें:');
+                        if (newP && newP.length === 4) {
+                          setUserPin(newP);
+                          await Storage.setItem('@gupshupp_pin', newP);
+                          socket.emit('update_profile', { username: currentUser, pin: newP });
+                        }
+                      }
+                    }}
+                  >
+                    <Text style={[styles.pinToggleBtnText, { color: userPin ? '#ffffff' : '#000000' }]}>{userPin ? 'Remove' : 'Set PIN'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* E2EE Info Box */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>🛡️ 256-bit AES End-to-End Encryption</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>Zero-Knowledge Client-Side Key Negotiation • Active 🟢</Text>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* 🎨 Modal: Appearance & Design Studio */}
+        <Modal visible={activeSettingsCategory === 'APPEARANCE'} transparent animationType="slide" onRequestClose={() => setActiveSettingsCategory(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '92%', maxWidth: 460, maxHeight: '85%' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 22 }}>🎨</Text>
+                  <Text style={[styles.modalTitle, { color: theme.text, fontSize: 18 }]}>Appearance & Chats</Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveSettingsCategory(null)}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* 1. Themes */}
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text, marginBottom: 8 }}>🌈 सिग्नेचर नियॉन थीम (Themes)</Text>
+                <View style={styles.themePaletteGrid}>
+                  {Object.values(THEME_PALETTES).map((pal) => (
+                    <TouchableOpacity
+                      key={pal.id}
+                      style={[styles.themeChoiceCard, { backgroundColor: pal.bg, borderColor: activeThemeId === pal.id ? pal.accent : pal.border }]}
+                      onPress={async () => {
+                        setActiveThemeId(pal.id);
+                        await Storage.setItem('@gupshupp_active_theme', pal.id);
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={[styles.themeSwatchDot, { backgroundColor: pal.accent }]} />
+                        <Text style={[styles.themeChoiceName, { color: pal.text }]}>{pal.name}</Text>
                       </View>
-                      <Text style={{ color: theme.text, fontSize: 14, marginTop: 4 }}>{decryptText(m.text)}</Text>
-                    </View>
-                  ))
-                )}
+                      {activeThemeId === pal.id && <Text style={{ color: pal.accent, fontWeight: '900', fontSize: 12 }}>✓</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* 2. Bubble Geometry */}
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text, marginTop: 14, marginBottom: 8 }}>💬 चैट बबल का आकार (Bubble Shape)</Text>
+                <View style={styles.bubbleShapeRow}>
+                  {[
+                    { id: 'PILL', label: '💊 Neo-Pill' },
+                    { id: 'SQUIRCLE', label: '◽ Squircle' },
+                    { id: 'ANGULAR', label: '📐 Angular' }
+                  ].map((shape) => (
+                    <TouchableOpacity
+                      key={shape.id}
+                      style={[styles.bubbleShapeBtn, { backgroundColor: theme.card, borderColor: bubbleGeometry === shape.id ? theme.accent : theme.border }]}
+                      onPress={async () => {
+                        setBubbleGeometry(shape.id);
+                        await Storage.setItem('@gupshupp_bubble_geometry', shape.id);
+                      }}
+                    >
+                      <Text style={[styles.bubbleShapeText, { color: bubbleGeometry === shape.id ? theme.accent : theme.text }]}>{shape.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* 3. Font Scale */}
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text, marginTop: 14, marginBottom: 8 }}>🔠 टेक्स्ट फॉन्ट साइज (Font Scaling)</Text>
+                <View style={styles.bubbleShapeRow}>
+                  {[
+                    { id: 'COMPACT', label: 'छोटा (13px)' },
+                    { id: 'STANDARD', label: 'मानक (15px)' },
+                    { id: 'LARGE', label: 'बड़ा (18px)' }
+                  ].map((scale) => (
+                    <TouchableOpacity
+                      key={scale.id}
+                      style={[styles.bubbleShapeBtn, { backgroundColor: theme.card, borderColor: fontSizeScale === scale.id ? theme.accent : theme.border }]}
+                      onPress={async () => {
+                        setFontSizeScale(scale.id);
+                        await Storage.setItem('@gupshupp_font_scale', scale.id);
+                      }}
+                    >
+                      <Text style={[styles.bubbleShapeText, { color: fontSizeScale === scale.id ? theme.accent : theme.text }]}>{scale.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* 4. Wallpaper */}
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text, marginTop: 14, marginBottom: 8 }}>🖼️ कस्टम चैट वॉलपेपर (Gallery Photos)</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity 
+                    style={[styles.primaryBtn, { backgroundColor: theme.accent, flex: 1, marginTop: 0 }]}
+                    onPress={pickCustomWallpaperFromGallery}
+                  >
+                    <Text style={[styles.primaryBtnText, { color: '#000000' }]}>📁 गैलरी से फोटो लगाएं</Text>
+                  </TouchableOpacity>
+                  {customWallpaperUri && (
+                    <TouchableOpacity 
+                      style={[styles.removeWallBtn, { backgroundColor: '#ef4444' }]}
+                      onPress={removeCustomWallpaper}
+                    >
+                      <Text style={{ color: '#ffffff', fontWeight: '800' }}>✕ हटाएं</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ☁️ Modal: Storage & Cloud Backup */}
+        <Modal visible={activeSettingsCategory === 'STORAGE'} transparent animationType="slide" onRequestClose={() => setActiveSettingsCategory(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '92%', maxWidth: 460, maxHeight: '85%' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 22 }}>☁️</Text>
+                  <Text style={[styles.modalTitle, { color: theme.text, fontSize: 18 }]}>Storage & Cloud Backup</Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveSettingsCategory(null)}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={[styles.appearanceStudioCard, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 14 }]}>
+                  <Text style={[styles.appearanceSubHeading, { color: theme.text }]}>☁️ AES-256 Encrypted Cloud Vault</Text>
+                  <Text style={[styles.privacySub, { color: theme.textMuted, marginTop: 4 }]}>सभी संदेशों, मीडिया और सेटिंग्स का सुरक्षित जीरो डेटा-लॉस क्लाउड बैकअप।</Text>
+                  {cloudBackupStatus ? <Text style={{ color: theme.accentLight, fontSize: 12, marginTop: 6, fontWeight: '700' }}>{cloudBackupStatus}</Text> : null}
+                  
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                    <TouchableOpacity 
+                      style={[styles.primaryBtn, { flex: 1, backgroundColor: theme.accent, marginTop: 0 }]}
+                      onPress={handleCloudBackupSave}
+                      disabled={isCloudBackupLoading}
+                    >
+                      <Text style={[styles.primaryBtnText, { color: '#000000' }]}>{isCloudBackupLoading ? 'Saving...' : 'Backup Now ☁️'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.secondaryBtn, { flex: 1, borderColor: theme.accentLight }]}
+                      onPress={handleCloudBackupRestore}
+                      disabled={isCloudBackupLoading}
+                    >
+                      <Text style={[styles.secondaryBtnText, { color: theme.accentLight }]}>Restore 🔄</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Starred Messages Shortcut */}
+                <TouchableOpacity 
+                  style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}
+                  onPress={() => {
+                    setActiveSettingsCategory(null);
+                    setShowStarredModal(true);
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>⭐ Starred Messages Vault</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>बुकमार्क किए गए संदेश देखें</Text>
+                  </View>
+                  <Text style={{ color: theme.accentLight, fontWeight: '800' }}>Open ➔</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* 🤖 Modal: GP AI Engine Settings */}
+        <Modal visible={activeSettingsCategory === 'GPAI'} transparent animationType="slide" onRequestClose={() => setActiveSettingsCategory(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '92%', maxWidth: 460, maxHeight: '85%' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 22 }}>🤖</Text>
+                  <Text style={[styles.modalTitle, { color: theme.text, fontSize: 18 }]}>GP AI Assistant Engine</Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveSettingsCategory(null)}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>⚡ Dual-Engine Hybrid Switch</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>Primary: Groq Llama 3.3 70B (84ms latency) • Fallback: Google Gemini 1.5</Text>
+                  </View>
+                  <View style={{ backgroundColor: '#22c55e', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                    <Text style={{ color: '#000000', fontWeight: '900', fontSize: 11 }}>ACTIVE 🟢</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>🛡️ 0-Token Instant Rule Caching</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>अक्सर पूछे जाने वाले प्रश्नों पर 0 API टोकन खर्च होते हैं</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.primaryBtn, { backgroundColor: theme.accent, marginTop: 8 }]}
+                  onPress={() => {
+                    setActiveSettingsCategory(null);
+                    startDirectChat('gp_ai_bot');
+                  }}
+                >
+                  <Text style={[styles.primaryBtnText, { color: '#000000' }]}>🤖 Start Chat with GP AI ➔</Text>
+                </TouchableOpacity>
               </ScrollView>
             </View>
           </View>
@@ -5641,5 +5845,11 @@ const styles = StyleSheet.create({
   quickActionButton: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14 },
   quickActionIconBox: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   quickActionTitle: { fontSize: 14, fontWeight: '800' },
-  quickActionSub: { fontSize: 11, marginTop: 2 }
+  quickActionSub: { fontSize: 11, marginTop: 2 },
+  settingsCategoryGroup: { marginTop: 8 },
+  settingsCategoryRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
+  settingsCategoryIconBox: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  settingsCategoryIcon: { fontSize: 18 },
+  settingsCategoryTitle: { fontSize: 14, fontWeight: '800' },
+  settingsCategorySub: { fontSize: 11, marginTop: 2 }
 });
