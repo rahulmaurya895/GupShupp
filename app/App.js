@@ -863,7 +863,26 @@ export default function App() {
   const [showAppearanceStudioModal, setShowAppearanceStudioModal] = useState(false);
   const [showAttachmentMenuModal, setShowAttachmentMenuModal] = useState(false);
   const [showChatOptionsMenu, setShowChatOptionsMenu] = useState(false);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatUserInput, setNewChatUserInput] = useState('');
+  const [registeredUsersList, setRegisteredUsersList] = useState([]);
+  const [isLoadingUsersList, setIsLoadingUsersList] = useState(false);
   const [pinnedChatMessage, setPinnedChatMessage] = useState(null);
+
+  const fetchRegisteredUsers = async () => {
+    try {
+      setIsLoadingUsersList(true);
+      const res = await fetch(`${backendHost}/api/users`);
+      const data = await res.json();
+      if (data?.success && data.users) {
+        setRegisteredUsersList(data.users.filter(u => u.username.toLowerCase() !== (currentUser || '').toLowerCase()));
+      }
+    } catch (e) {
+      console.error("Fetch users error:", e);
+    } finally {
+      setIsLoadingUsersList(false);
+    }
+  };
 
   const THEME_PALETTES = {
     WHATSAPP: {
@@ -2531,7 +2550,7 @@ export default function App() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
         <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.headerBg} />
         
-        {/* 🌟 WhatsApp + Telegram Hybrid Signature Header */}
+        {/* 🌟 Clean WhatsApp Signature Header */}
         <View style={[styles.homeHeader, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={() => setBottomNav('PROFILE')} style={{ position: 'relative' }}>
@@ -2560,9 +2579,12 @@ export default function App() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.iconCircleBtn, { backgroundColor: theme.card }]} 
-              onPress={() => setShowLanguageModal(true)}
+              onPress={() => {
+                fetchRegisteredUsers();
+                setShowNewChatModal(true);
+              }}
             >
-              <Text style={styles.iconCircleText}>🌐</Text>
+              <Text style={styles.iconCircleText}>➕</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.iconCircleBtn, { backgroundColor: theme.card }]} 
@@ -2616,109 +2638,85 @@ export default function App() {
           </View>
         )}
 
-        {/* 🎬 24h Ephemeral Stories / Status Tray (WhatsApp Style) */}
-        <View style={[styles.storiesContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
-            {/* Add Story Circle */}
-            <TouchableOpacity style={styles.storyCircleBox} onPress={() => setShowCreateStoryModal(true)}>
-              <View style={[styles.addStoryRing, { borderColor: theme.accentLight, backgroundColor: theme.card }]}>
-                <Text style={styles.storyAvatarEmoji}>{userAvatar}</Text>
-                <View style={[styles.addStoryPlusBadge, { backgroundColor: theme.accent }]}>
-                  <Text style={styles.addStoryPlusText}>+</Text>
-                </View>
-              </View>
-              <Text style={[styles.storyUserName, { color: theme.text, fontWeight: '700' }]} numberOfLines={1}>Your Status</Text>
-            </TouchableOpacity>
-
-            {/* Friends Stories */}
-            {stories.map((st, idx) => (
-              <TouchableOpacity 
-                key={idx} 
-                style={styles.storyCircleBox} 
-                onPress={() => {
-                  socket.emit('view_story', { storyId: st._id, viewerUsername: currentUser });
-                  setActiveStoryModal(st);
-                }}
-              >
-                <View style={[styles.storyRing, { borderColor: theme.accentLight, backgroundColor: theme.card }]}>
-                  <Text style={styles.storyAvatarEmoji}>{st.avatar}</Text>
-                </View>
-                <Text style={[styles.storyUserName, { color: theme.text }]} numberOfLines={1}>@{st.username}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* 🗂️ Telegram-Style Fluid Folder Tabs Bar */}
-        <View style={[styles.folderTabsBar, { backgroundColor: theme.headerBg, borderBottomColor: theme.border, borderBottomWidth: 1 }]}>
-          {[
-            { id: 'ALL', label: 'All', icon: '💬' },
-            { id: 'UNREAD', label: 'Unread', icon: '🔴' },
-            { id: 'DM', label: 'Personal', icon: '👤' },
-            { id: 'GROUPS', label: 'Groups', icon: '👥' },
-            { id: 'GPAI', label: 'GP AI 🤖', icon: '⚡' }
-          ].map((f) => (
-            <TouchableOpacity 
-              key={f.id} 
-              style={[
-                styles.folderTabItem, 
-                chatFolder === f.id ? { backgroundColor: theme.accent, borderColor: theme.accentLight } : { backgroundColor: 'transparent' }
-              ]}
-              onPress={() => {
-                if (f.id === 'GPAI') {
-                  startDirectChat('gp_ai_bot');
-                } else {
-                  setChatFolder(f.id);
-                }
-              }}
-            >
-              <Text style={[
-                styles.folderTabLabel, 
-                chatFolder === f.id ? { color: '#000000', fontWeight: '900' } : { color: theme.textMuted }
-              ]}>
-                {f.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {/* Home Content Body */}
         <ScrollView style={styles.homeContent}>
           {bottomNav === 'CHATS' && (
             <View style={styles.tabContentContainer}>
-              {/* ☁️ Telegram-Style Saved Messages / Personal Cloud Vault */}
-              <TouchableOpacity 
-                activeOpacity={0.85}
-                style={[styles.savedMessagesRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                onPress={() => {
-                  const savedRoom = `saved_messages_${currentUser.toLowerCase()}`;
-                  setActiveRoom(savedRoom);
-                  setChatTitle(`☁️ Saved Messages`);
-                  setIsDirectChat(true);
-                  setMessages([]);
-                  setIsLoadingHistory(true);
-                  setAiSmartReplies([]);
-                  setIsSearchActive(false);
-                  setSearchQuery('');
-                  navigateToChat();
-                  socket.emit('join_room', { room: savedRoom, username: currentUser });
-                }}
-              >
-                <View style={[styles.savedMessagesIconBox, { backgroundColor: theme.accent }]}>
-                  <Text style={styles.savedMessagesIcon}>☁️</Text>
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <View style={styles.chatTitleRow}>
-                    <Text style={[styles.recentChatTitle, { color: theme.text, fontWeight: '900' }]}>Saved Messages</Text>
-                    <Text style={[styles.savedBadge, { color: theme.accentLight }]}>Cloud 🔒</Text>
+              {/* Quick AI & Cloud Shortcuts Row */}
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                {/* 🤖 GP AI Quick Chat Button */}
+                <TouchableOpacity 
+                  activeOpacity={0.85}
+                  style={[styles.quickActionButton, { flex: 1, backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1.5 }]}
+                  onPress={() => startDirectChat('gp_ai_bot')}
+                >
+                  <View style={[styles.quickActionIconBox, { backgroundColor: theme.accent }]}>
+                    <Text style={{ fontSize: 18 }}>🤖</Text>
                   </View>
-                  <Text style={[styles.recentChatSnippet, { color: theme.textMuted }]}>पर्सनल नोट्स, लिंक्स, कोड और फाइल्स वॉल्ट</Text>
-                </View>
-              </TouchableOpacity>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={[styles.quickActionTitle, { color: theme.text }]}>GP AI Bot</Text>
+                    <Text style={[styles.quickActionSub, { color: theme.accentLight }]}>Smart Assistant ⚡</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* ☁️ Saved Messages Cloud Vault */}
+                <TouchableOpacity 
+                  activeOpacity={0.85}
+                  style={[styles.quickActionButton, { flex: 1, backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
+                  onPress={() => {
+                    const savedRoom = `saved_messages_${currentUser.toLowerCase()}`;
+                    setActiveRoom(savedRoom);
+                    setChatTitle(`☁️ Saved Messages`);
+                    setIsDirectChat(true);
+                    setMessages([]);
+                    setIsLoadingHistory(true);
+                    setAiSmartReplies([]);
+                    setIsSearchActive(false);
+                    setSearchQuery('');
+                    navigateToChat();
+                    socket.emit('join_room', { room: savedRoom, username: currentUser });
+                  }}
+                >
+                  <View style={[styles.quickActionIconBox, { backgroundColor: '#2563eb' }]}>
+                    <Text style={{ fontSize: 18 }}>☁️</Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={[styles.quickActionTitle, { color: theme.text }]}>Saved Notes</Text>
+                    <Text style={[styles.quickActionSub, { color: theme.textMuted }]}>Cloud Vault 🔒</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Recent Conversations List Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={[styles.sectionHeading, { color: theme.text, marginBottom: 0 }]}>💬 चैट्स (Conversations)</Text>
+                <TouchableOpacity 
+                  onPress={() => {
+                    fetchRegisteredUsers();
+                    setShowNewChatModal(true);
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: theme.card, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}
+                >
+                  <Text style={{ color: theme.accentLight, fontWeight: '800', fontSize: 12 }}>+ New Chat</Text>
+                </TouchableOpacity>
+              </View>
 
               {filteredRecentChats.length === 0 ? (
-                <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>इस फोल्डर में कोई चैट नहीं है।</Text>
+                <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 24, alignItems: 'center' }]}>
+                  <Text style={{ fontSize: 40, marginBottom: 10 }}>💬</Text>
+                  <Text style={[styles.emptyText, { color: theme.text, fontWeight: '800', fontSize: 15, marginBottom: 6 }]}>अभी कोई चैट शुरू नहीं हुई है</Text>
+                  <Text style={[styles.emptyText, { color: theme.textMuted, fontSize: 13, textAlign: 'center', marginBottom: 16 }]}>
+                    नीचे दिए गए हरे <Text style={{ color: theme.accentLight, fontWeight: '900' }}>💬 बटन</Text> पर टैप करके किसी भी दोस्त या यूज़र से तुरंत चैट शुरू करें!
+                  </Text>
+                  <TouchableOpacity 
+                    style={[styles.primaryBtn, { backgroundColor: theme.accent, paddingHorizontal: 20, height: 42 }]}
+                    onPress={() => {
+                      fetchRegisteredUsers();
+                      setShowNewChatModal(true);
+                    }}
+                  >
+                    <Text style={[styles.primaryBtnText, { color: '#000000' }]}>+ Start Direct Chat 🚀</Text>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 filteredRecentChats.map((chat, idx) => {
@@ -2731,7 +2729,7 @@ export default function App() {
                       style={[styles.recentChatRow, { backgroundColor: theme.surface, borderColor: isPinned ? theme.accentLight : theme.border }]}
                       onPress={() => chat.type === 'dm' ? startDirectChat(chat.title.replace('@', '')) : joinGroupRoom(chat.title)}
                     >
-                      <View style={styles.chatAvatarBox}>
+                      <View style={[styles.chatAvatarBox, { backgroundColor: theme.card, position: 'relative' }]}>
                         <Text style={styles.chatAvatarEmoji}>{chat.avatar}</Text>
                       </View>
                       <View style={{ flex: 1, marginLeft: 12 }}>
@@ -2758,9 +2756,61 @@ export default function App() {
             </View>
           )}
 
+          {bottomNav === 'STATUS' && (
+            <View style={styles.tabContentContainer}>
+              <Text style={[styles.sectionHeading, { color: theme.text }]}>⭕ 24h स्टेटस & स्टोरीज (Updates)</Text>
+              
+              {/* My Status Card */}
+              <TouchableOpacity 
+                style={[styles.recentChatRow, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 14 }]}
+                onPress={() => setShowCreateStoryModal(true)}
+              >
+                <View style={[styles.addStoryRing, { borderColor: theme.accentLight, backgroundColor: theme.card }]}>
+                  <Text style={styles.storyAvatarEmoji}>{userAvatar}</Text>
+                  <View style={[styles.addStoryPlusBadge, { backgroundColor: theme.accent }]}>
+                    <Text style={styles.addStoryPlusText}>+</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={[styles.recentChatTitle, { color: theme.text }]}>My Status</Text>
+                  <Text style={[styles.recentChatSnippet, { color: theme.textMuted }]}>टैप करके नया स्टेटस अपडेट शेयर करें</Text>
+                </View>
+              </TouchableOpacity>
+
+              <Text style={[styles.sectionHeading, { color: theme.textMuted, fontSize: 13, marginTop: 10 }]}>हाल के अपडेट (Recent Updates)</Text>
+              {stories.length === 0 ? (
+                <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20, alignItems: 'center' }]}>
+                  <Text style={{ color: theme.textMuted, textAlign: 'center' }}>अभी कोई रीसेंट स्टेटस नहीं है।</Text>
+                </View>
+              ) : (
+                stories.map((st, idx) => (
+                  <TouchableOpacity 
+                    key={idx} 
+                    style={[styles.recentChatRow, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 8 }]}
+                    onPress={() => {
+                      socket.emit('view_story', { storyId: st._id, viewerUsername: currentUser });
+                      setActiveStoryModal(st);
+                    }}
+                  >
+                    <View style={[styles.storyRing, { borderColor: theme.accentLight, backgroundColor: theme.card }]}>
+                      <Text style={styles.storyAvatarEmoji}>{st.avatar}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 14 }}>
+                      <Text style={[styles.recentChatTitle, { color: theme.text }]}>@{st.username}</Text>
+                      <Text style={[styles.recentChatSnippet, { color: theme.textMuted }]}>{st.time || 'Today'} • {st.views?.length || 0} views</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          )}
+
           {bottomNav === 'GROUPS' && (
             <View style={styles.tabContentContainer}>
-              <Text style={[styles.sectionHeading, { color: theme.text }]}>🔥 कम्युनिटी सुपर-ग्रुप्स (Discord-Style)</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={[styles.sectionHeading, { color: theme.text, marginBottom: 0 }]}>🔥 कम्युनिटी सुपर-ग्रुप्स</Text>
+              </View>
+
               {[
                 { name: 'tech', desc: 'AI, React Native, Full-Stack & Python 🚀', members: 42, icon: '💻' },
                 { name: 'friends', desc: 'Chill & Hangout Group 🎉', members: 28, icon: '🍕' },
@@ -2779,19 +2829,16 @@ export default function App() {
                       <Text style={[styles.superGroupMembers, { color: theme.textMuted }]}>👥 {grp.members} मेंबर्स • 👑 Verified</Text>
                     </View>
                     <TouchableOpacity style={[styles.joinGroupBtn, { backgroundColor: theme.accent }]} onPress={() => joinGroupRoom(grp.name)}>
-                      <Text style={[styles.joinGroupBtnText, { color: '#000000' }]}>Join 🚪</Text>
+                      <Text style={[styles.joinGroupBtnText, { color: '#000000' }]}>Open 🚪</Text>
                     </TouchableOpacity>
                   </View>
                   <Text style={[styles.superGroupDesc, { color: theme.textMuted }]}>{grp.desc}</Text>
                 </TouchableOpacity>
               ))}
-            </View>
-          )}
 
-          {bottomNav === 'CHANNELS' && (
-            <View style={styles.tabContentContainer}>
-              <View style={styles.channelHeaderRow}>
-                <Text style={[styles.sectionHeading, { color: theme.text }]}>📢 ब्रॉडकास्ट चैनल्स</Text>
+              {/* Broadcast Channels Section */}
+              <View style={[styles.channelHeaderRow, { marginTop: 18 }]}>
+                <Text style={[styles.sectionHeading, { color: theme.text, marginBottom: 0 }]}>📢 ब्रॉडकास्ट चैनल्स</Text>
                 <TouchableOpacity style={[styles.createChanBtn, { backgroundColor: theme.accent }]} onPress={() => setShowCreateChannelModal(true)}>
                   <Text style={[styles.createChanBtnText, { color: '#000000' }]}>+ नया चैनल</Text>
                 </TouchableOpacity>
@@ -3099,21 +3146,36 @@ export default function App() {
           )}
         </ScrollView>
 
-        {/* Floating WhatsApp-Style Status Button */}
-        <TouchableOpacity 
-          activeOpacity={0.85}
-          style={[styles.floatingStatusFab, { backgroundColor: theme.accent }]}
-          onPress={() => setShowCreateStoryModal(true)}
-        >
-          <Text style={[styles.floatingStatusFabText, { color: '#000000' }]}>✍️ + Status</Text>
-        </TouchableOpacity>
+        {/* Floating WhatsApp-Style Action Button (FAB) */}
+        {bottomNav === 'CHATS' ? (
+          <TouchableOpacity 
+            activeOpacity={0.85}
+            style={[styles.floatingStatusFab, { backgroundColor: theme.accent }]}
+            onPress={() => {
+              fetchRegisteredUsers();
+              setShowNewChatModal(true);
+            }}
+          >
+            <Text style={{ fontSize: 20, marginRight: 6 }}>💬</Text>
+            <Text style={[styles.floatingStatusFabText, { color: '#000000' }]}>New Chat</Text>
+          </TouchableOpacity>
+        ) : (bottomNav === 'STATUS' ? (
+          <TouchableOpacity 
+            activeOpacity={0.85}
+            style={[styles.floatingStatusFab, { backgroundColor: theme.accent }]}
+            onPress={() => setShowCreateStoryModal(true)}
+          >
+            <Text style={{ fontSize: 18, marginRight: 4 }}>✍️</Text>
+            <Text style={[styles.floatingStatusFabText, { color: '#000000' }]}>+ Status</Text>
+          </TouchableOpacity>
+        ) : null)}
 
-        {/* 4 Bottom Navigation Tabs - Floating Glass Style */}
+        {/* 4 Bottom Navigation Tabs - Clean WhatsApp Style */}
         <View style={[styles.neoFloatingNavBar, { backgroundColor: theme.navBg, borderColor: theme.border }]}>
           {[
             { id: 'CHATS', icon: '💬', label: t('chats') },
+            { id: 'STATUS', icon: '⭕', label: 'Status' },
             { id: 'GROUPS', icon: '👥', label: t('groups') },
-            { id: 'CHANNELS', icon: '📢', label: t('channels') },
             { id: 'PROFILE', icon: '👤', label: t('profile') }
           ].map((tab) => {
             const isActive = bottomNav === tab.id;
@@ -3127,6 +3189,137 @@ export default function App() {
             );
           })}
         </View>
+
+        {/* 💬 Modal: New Chat / Direct Message & Contact Picker */}
+        <Modal visible={showNewChatModal} transparent animationType="slide" onRequestClose={() => setShowNewChatModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '92%', maxWidth: 460, maxHeight: '85%' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 22 }}>💬</Text>
+                  <Text style={[styles.modalTitle, { color: theme.text, fontSize: 18 }]}>नया संदेश / New Chat</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowNewChatModal(false)} style={{ padding: 4 }}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Direct Username Input */}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, marginBottom: 6 }}>
+                सीधे यूज़रनेम दर्ज करके चैट शुरू करें:
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border, flex: 1, height: 44 }]}
+                  placeholder="यूज़रनेम लिखें (उदा. rahul, aman)..."
+                  placeholderTextColor={theme.textMuted}
+                  value={newChatUserInput}
+                  onChangeText={setNewChatUserInput}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { backgroundColor: theme.accent, paddingHorizontal: 16, height: 44, marginTop: 0 }]}
+                  onPress={() => {
+                    if (!newChatUserInput.trim()) return;
+                    const target = newChatUserInput.trim().replace(/^@/, '');
+                    setShowNewChatModal(false);
+                    setNewChatUserInput('');
+                    startDirectChat(target);
+                  }}
+                >
+                  <Text style={[styles.primaryBtnText, { color: '#000000', fontSize: 14 }]}>Chat ➔</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick AI & Group Creation Row */}
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                <TouchableOpacity
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, backgroundColor: theme.card, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}
+                  onPress={() => {
+                    setShowNewChatModal(false);
+                    startDirectChat('gp_ai_bot');
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>🤖</Text>
+                  <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12 }}>GP AI Bot</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, backgroundColor: theme.card, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}
+                  onPress={() => {
+                    setShowNewChatModal(false);
+                    setShowCreateChannelModal(true);
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>📢</Text>
+                  <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12 }}>New Channel</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Registered Users List */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.text }}>👥 सभी एक्टिव और रजिस्टर्ड यूज़र्स ({registeredUsersList.length})</Text>
+                <TouchableOpacity onPress={fetchRegisteredUsers}>
+                  <Text style={{ color: theme.accentLight, fontSize: 12, fontWeight: '700' }}>🔄 Refresh</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 220, marginVertical: 4 }}>
+                {isLoadingUsersList ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={theme.accent} />
+                    <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 6 }}>यूज़र्स लोड हो रहे हैं...</Text>
+                  </View>
+                ) : registeredUsersList.length === 0 ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: theme.textMuted, fontSize: 13 }}>कोई अन्य यूज़र नहीं मिला। ऊपर सीधे यूज़रनेम टाइप करें!</Text>
+                  </View>
+                ) : (
+                  registeredUsersList.map((u, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 10,
+                        paddingHorizontal: 12,
+                        borderRadius: 10,
+                        backgroundColor: theme.card,
+                        marginBottom: 6,
+                        borderWidth: 1,
+                        borderColor: theme.border
+                      }}
+                      onPress={() => {
+                        setShowNewChatModal(false);
+                        startDirectChat(u.username);
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                          <Text style={{ fontSize: 20 }}>{u.avatar}</Text>
+                          {u.isOnline && (
+                            <View style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 1.5, borderColor: theme.card }} />
+                          )}
+                        </View>
+                        <View>
+                          <Text style={{ color: theme.text, fontWeight: '800', fontSize: 14 }}>@{u.username}</Text>
+                          <Text style={{ color: u.isOnline ? '#22c55e' : theme.textMuted, fontSize: 11 }}>
+                            {u.isOnline ? 'Online 🟢' : u.status}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={{ backgroundColor: theme.accent, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}>
+                        <Text style={{ color: '#000000', fontWeight: '800', fontSize: 11 }}>Message 💬</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         {/* Modal: Create Customizable Duration Story */}
         <Modal visible={showCreateStoryModal} transparent animationType="slide">
@@ -5439,5 +5632,9 @@ const styles = StyleSheet.create({
   chatOptionsDropdown: { position: 'absolute', top: 55, right: 16, width: 220, borderRadius: 14, borderWidth: 1, padding: 8, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
   dropdownMenuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
   dropdownMenuIcon: { fontSize: 18, marginRight: 10 },
-  dropdownMenuText: { fontSize: 13, fontWeight: '700' }
+  dropdownMenuText: { fontSize: 13, fontWeight: '700' },
+  quickActionButton: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14 },
+  quickActionIconBox: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  quickActionTitle: { fontSize: 14, fontWeight: '800' },
+  quickActionSub: { fontSize: 11, marginTop: 2 }
 });

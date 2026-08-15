@@ -91,5 +91,42 @@
       "contextPrompt": "In a meeting"
     },
     "pinnedChats": []
+  },
+  "testuser_1786825938678": {
+    "username": "testuser_1786825938678",
+    "password": "$2b$10$w/P.9WUq03vFeHtirt8zyOb0Lv1M68VJ30BEclzgLxrOxNi0F.ne6",
+    "avatar": "🦁",
+    "status": "Available 🟢",
+    "pin": "",
+    "privacySettings": {
+      "ghostMode": false,
+      "stealthReadReceipts": false,
+      "silentTyping": false
+    },
+    "aiAutoResponder": {
+      "enabled": false,
+      "awayStatus": "In Meeting ☕",
+      "contextPrompt": "In a meeting, reply soon"
+    },
+    "pinnedChats": []
+  },
+  "rahul_178682593": {
+    "username": "rahul_178682593",
+    "email": "rahul_1786825938904@gmail.com",
+    "password": "$2b$10$qBc7YMo6R4jtqUG5VOiv8OuAt9WYNkAMhqzHesXVfm74jqH9NA7eu",
+    "avatar": "🌟",
+    "status": "Available 🟢",
+    "pin": "",
+    "privacySettings": {
+      "ghostMode": false,
+      "stealthReadReceipts": false,
+      "silentTyping": false
+    },
+    "aiAutoResponder": {
+      "enabled": false,
+      "awayStatus": "In Meeting ☕",
+      "contextPrompt": "In a meeting"
+    },
+    "pinnedChats": []
   }
 }

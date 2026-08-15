@@ -756,6 +756,23 @@ app.get('/api/status', (req, res) => {
     });
 });
 
+// 👥 Get Registered & Online Users List for Direct Messaging
+app.get('/api/users', (req, res) => {
+    try {
+        const usersMap = loadPersistentUsers();
+        const onlineList = Array.from(globalOnlineUsers.values()).map(u => u.toLowerCase());
+        const usersList = Object.keys(usersMap).map(u => ({
+            username: u,
+            avatar: usersMap[u]?.avatar || '🦁',
+            status: usersMap[u]?.status || 'Available 🟢',
+            isOnline: onlineList.includes(u.toLowerCase())
+        }));
+        res.json({ success: true, users: usersList });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // 🌐 24/7 Global Web App Static Hosting (Expo Web Dist)
 const webBuildPath = path.join(__dirname, '../../app/dist');
 if (fs.existsSync(webBuildPath)) {
@@ -1409,11 +1426,21 @@ io.on('connection', (socket) => {
             sender === 'GupShupp AI'
         ));
 
+        const isGpAiRoom = room && (
+            room.includes('gp_ai') || 
+            room.includes('ai_bot') || 
+            room.includes('gp_ai_bot') ||
+            room === 'dm_gp_ai_bot' ||
+            (room.startsWith('dm_') && (room.includes('_gp_ai_bot') || room.includes('_gp_ai')))
+        );
+
         if (!isBotSender && text) {
             const allBotMatches = text.match(/@(?:gp|ai|coder|meme|news|roast)\b/gi);
-            if (allBotMatches && allBotMatches.length > 0) {
+            if ((allBotMatches && allBotMatches.length > 0) || isGpAiRoom) {
                 (async () => {
-                    const uniqueBots = Array.from(new Set(allBotMatches.map(b => b.toLowerCase()))).slice(0, 2);
+                    const uniqueBots = (allBotMatches && allBotMatches.length > 0)
+                        ? Array.from(new Set(allBotMatches.map(b => b.toLowerCase()))).slice(0, 2)
+                        : ['@gp'];
                     const botSenderNames = {
                         '@gp': '🤖 GP AI',
                         '@ai': '🤖 GP AI',
