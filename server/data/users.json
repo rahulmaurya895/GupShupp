@@ -1,0 +1,39 @@
+{
+  "testuser_1786824409529": {
+    "username": "testuser_1786824409529",
+    "password": "$2b$10$z7Z5Y0bFGapjYOORHuqgheuj/5VEmcFU6BB.XTazcWdCxt3K62Bmy",
+    "avatar": "🦁",
+    "status": "Available 🟢",
+    "pin": "",
+    "privacySettings": {
+      "ghostMode": false,
+      "stealthReadReceipts": false,
+      "silentTyping": false
+    },
+    "aiAutoResponder": {
+      "enabled": false,
+      "awayStatus": "In Meeting ☕",
+      "contextPrompt": "In a meeting, reply soon"
+    },
+    "pinnedChats": []
+  },
+  "rahul_178682440": {
+    "username": "rahul_178682440",
+    "email": "rahul_1786824409772@gmail.com",
+    "password": "$2b$10$dqIE1YW2jC8OGOGPDlZo5.pMIZGDaMjIpbs8RG2ckbc7FDkZuAn3a",
+    "avatar": "🌟",
+    "status": "Available 🟢",
+    "pin": "",
+    "privacySettings": {
+      "ghostMode": false,
+      "stealthReadReceipts": false,
+      "silentTyping": false
+    },
+    "aiAutoResponder": {
+      "enabled": false,
+      "awayStatus": "In Meeting ☕",
+      "contextPrompt": "In a meeting"
+    },
+    "pinnedChats": []
+  }
+}

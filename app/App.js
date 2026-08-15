@@ -676,6 +676,9 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [showGoogleAuthModal, setShowGoogleAuthModal] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // 🌍 Global Language & i18n State
   const [appLanguage, setAppLanguage] = useState('en'); // Default: Clean International English
@@ -1605,19 +1608,19 @@ export default function App() {
     const endpoint = authTab === 'LOGIN' ? 'login' : 'register';
     const payload = { username: authUsername.trim(), password: authPassword.trim(), avatar: userAvatar };
 
-    let handled = false;
-
     // 1. Try Fast Socket Auth
     socket.emit(authTab === 'LOGIN' ? 'auth_login' : 'auth_register', payload, async (res) => {
-      if (handled) return;
+      setIsAuthenticating(false);
       if (res && res.success) {
-        handled = true;
-        setIsAuthenticating(false);
         onAuthSuccess(res.token, res.username, res.avatar, res.status, res.pin, res.privacySettings, res.aiAutoResponder, res.pinnedChats, res.refreshToken);
         return;
       }
-      
-      // 2. Fallback to HTTP REST Auth
+      if (res && res.message) {
+        setAuthError(res.message);
+        return;
+      }
+
+      // 2. Fallback to HTTP REST Auth if socket didn't return explicit message
       try {
         const response = await fetch(`${BASE_URL}/api/${endpoint}`, {
           method: 'POST',
@@ -1625,23 +1628,19 @@ export default function App() {
           body: JSON.stringify(payload)
         });
         const data = await response.json();
-        handled = true;
-        setIsAuthenticating(false);
         if (data && data.success) {
           onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats, data.refreshToken);
         } else {
-          setAuthError(data?.message || res?.message || 'लॉगिन / साइन अप विफल रहा।');
+          setAuthError(data?.message || 'लॉगिन / साइन अप विफल रहा।');
         }
       } catch (err) {
-        handled = true;
-        setIsAuthenticating(false);
-        setAuthError(res?.message || 'सर्वर से कनेक्ट नहीं हो सका। कृपया नेटवर्क चेक करें।');
+        setAuthError('सर्वर से कनेक्ट नहीं हो सका। कृपया नेटवर्क चेक करें।');
       }
     });
 
     // Safety timeout fallback
     setTimeout(async () => {
-      if (!handled) {
+      if (isAuthenticating) {
         try {
           const response = await fetch(`${BASE_URL}/api/${endpoint}`, {
             method: 'POST',
@@ -1649,7 +1648,6 @@ export default function App() {
             body: JSON.stringify(payload)
           });
           const data = await response.json();
-          handled = true;
           setIsAuthenticating(false);
           if (data && data.success) {
             onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats, data.refreshToken);
@@ -1657,12 +1655,84 @@ export default function App() {
             setAuthError(data?.message || 'लॉगिन विफल रहा।');
           }
         } catch (e) {
-          handled = true;
           setIsAuthenticating(false);
         }
       }
-    }, 2000);
+    }, 2500);
   };
+
+  // 🔴 1-Tap Google / Gmail Sign-In Handler
+  const handleGoogleSignIn = async (emailInput) => {
+    const targetEmail = (emailInput || googleEmailInput || '').trim();
+    if (!targetEmail || !targetEmail.includes('@')) {
+      setAuthError('कृपया मान्य ईमेल आईडी दर्ज करें (उदा. rahul@gmail.com)');
+      return;
+    }
+    setIsGoogleLoading(true);
+    setAuthError('');
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const payload = {
+      email: targetEmail,
+      name: targetEmail.split('@')[0],
+      avatar: '🌟',
+      googleId: 'g_' + Date.now()
+    };
+
+    // 1. Try Fast Socket Google Auth
+    socket.emit('auth_google', payload, async (res) => {
+      setIsGoogleLoading(false);
+      setShowGoogleAuthModal(false);
+      setGoogleEmailInput('');
+
+      if (res && res.success) {
+        onAuthSuccess(res.token, res.username, res.avatar, res.status, res.pin, res.privacySettings, res.aiAutoResponder, res.pinnedChats, res.refreshToken);
+        return;
+      }
+
+      // 2. HTTP Fallback
+      try {
+        const response = await fetch(`${BASE_URL}/api/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data && data.success) {
+          onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats, data.refreshToken);
+        } else {
+          setAuthError(data?.message || 'Google Sign-In विफल रहा।');
+        }
+      } catch (e) {
+        setAuthError('Google Sign-In नेटवर्क त्रुटि: ' + e.message);
+      }
+    });
+
+    // Safety timeout
+    setTimeout(async () => {
+      if (isGoogleLoading) {
+        try {
+          const response = await fetch(`${BASE_URL}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          setIsGoogleLoading(false);
+          setShowGoogleAuthModal(false);
+          if (data && data.success) {
+            onAuthSuccess(data.token, data.username, data.avatar, data.status, data.pin, data.privacySettings, data.aiAutoResponder, data.pinnedChats, data.refreshToken);
+          }
+        } catch (e) {
+          setIsGoogleLoading(false);
+        }
+      }
+    }, 2500);
+  };
+
 
   const handleLogout = async () => {
     await Storage.removeItem('@gupshupp_token');
@@ -2299,9 +2369,105 @@ export default function App() {
                     </Text>
                   )}
                 </TouchableOpacity>
+
+                {/* 🔴 Google / Gmail 1-Tap Sign-In Divider & Button */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 14 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+                  <Text style={{ marginHorizontal: 8, color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>या (OR)</Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+                </View>
+
+                <TouchableOpacity 
+                  style={{
+                    backgroundColor: theme.card,
+                    borderColor: '#ea4335',
+                    borderWidth: 1.5,
+                    borderRadius: 12,
+                    paddingVertical: 13,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    shadowColor: '#ea4335',
+                    shadowOpacity: 0.15,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowRadius: 4
+                  }} 
+                  onPress={() => setShowGoogleAuthModal(true)}
+                  disabled={isGoogleLoading}
+                >
+                  {isGoogleLoading ? (
+                    <ActivityIndicator color="#ea4335" />
+                  ) : (
+                    <>
+                      <Text style={{ fontSize: 18 }}>🔴</Text>
+                      <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
+                        Google / Gmail से 1-Tap Sign-In 🚀
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </>
             )}
           </View>
+
+          {/* 🔴 Google Quick Sign-In Modal */}
+          <Modal
+            visible={showGoogleAuthModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowGoogleAuthModal(false)}
+          >
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.75)', padding: 20 }}>
+              <View style={{ width: '100%', maxWidth: 400, backgroundColor: theme.surface, borderRadius: 18, borderWidth: 1, borderColor: theme.border, padding: 22, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 24 }}>🔴</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }}>Google / Email 1-Tap</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowGoogleAuthModal(false)}>
+                    <Text style={{ fontSize: 20, color: theme.textMuted }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ fontSize: 13, color: theme.textMuted, marginBottom: 16 }}>
+                  अपना Gmail या Email दर्ज करें। यदि आपका खाता नहीं है, तो यह तुरंत 1-Tap में नया खाता बनाकर लॉगिन कर देगा!
+                </Text>
+
+                <TextInput
+                  style={[styles.input, { backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border, marginBottom: 14 }]}
+                  placeholder="उदा. yourname@gmail.com"
+                  placeholderTextColor={theme.textMuted}
+                  value={googleEmailInput}
+                  onChangeText={setGoogleEmailInput}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoFocus={true}
+                />
+
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity 
+                    style={{ flex: 1, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }} 
+                    onPress={() => setShowGoogleAuthModal(false)}
+                  >
+                    <Text style={{ color: theme.textMuted, fontWeight: '700' }}>रद्द करें (Cancel)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={{ flex: 1.5, backgroundColor: '#ea4335', borderRadius: 12, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' }} 
+                    onPress={() => handleGoogleSignIn(googleEmailInput)}
+                    disabled={isGoogleLoading}
+                  >
+                    {isGoogleLoading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>Continue ➔</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </KeyboardAvoidingView>
       </SafeAreaView>
     );

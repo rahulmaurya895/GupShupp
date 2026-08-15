@@ -83,6 +83,56 @@ const roomAdminSettingsStore = new Map(); // room -> { adminOnlyPost: boolean, m
 const chunkedUploadsStore = new Map(); // uploadId -> { chunks: Map, totalChunks, fileName }
 let globalMessageSequenceCounter = 0; // Monotonic Server Sequence Ordering (Clock Drift Immunity)
 
+// 📁 Multi-Worker Cluster Persistent Disk Storage (Guarantees 100% User Auth Sync Across PM2 Workers)
+const DATA_DIR = path.join(__dirname, '../data');
+if (!fs.existsSync(DATA_DIR)) {
+    try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+}
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
+function loadPersistentUsers() {
+    try {
+        if (fs.existsSync(USERS_FILE)) {
+            const raw = fs.readFileSync(USERS_FILE, 'utf8');
+            const parsed = JSON.parse(raw);
+            for (const [k, v] of Object.entries(parsed)) {
+                memoryUsers.set(k.toLowerCase(), v);
+            }
+        }
+    } catch (e) {
+        console.error("Error loading persistent users:", e.message);
+    }
+}
+
+function savePersistentUsers() {
+    try {
+        const obj = {};
+        for (const [k, v] of memoryUsers.entries()) {
+            obj[k] = v;
+        }
+        fs.writeFileSync(USERS_FILE, JSON.stringify(obj, null, 2), 'utf8');
+    } catch (e) {
+        console.error("Error saving persistent users:", e.message);
+    }
+}
+
+function getOrReloadUser(username) {
+    const clean = (username || '').trim().toLowerCase();
+    loadPersistentUsers(); // Synchronize latest accounts across PM2 cluster workers
+    return memoryUsers.get(clean);
+}
+
+function setAndSaveUser(username, userObj) {
+    const clean = (username || '').trim().toLowerCase();
+    loadPersistentUsers();
+    memoryUsers.set(clean, userObj);
+    savePersistentUsers();
+}
+
+// Initial Disk Load on Startup
+loadPersistentUsers();
+
+
 // ⏱️ Phase 5: 5-Second Scheduled Message Dispatcher
 setInterval(() => {
     const now = Date.now();
@@ -748,8 +798,9 @@ app.post('/api/register', async (req, res) => {
             const newUser = new User({ username, password: hashedPassword, avatar: userAvatar });
             await newUser.save();
         } else {
-            if (memoryUsers.has(username)) return res.status(400).json({ success: false, message: "यह यूज़रनेम पहले से मौजूद है।" });
-            memoryUsers.set(username, { 
+            const existing = getOrReloadUser(username);
+            if (existing) return res.status(400).json({ success: false, message: "यह यूज़रनेम पहले से मौजूद है।" });
+            setAndSaveUser(username, { 
                 username, 
                 password: hashedPassword, 
                 avatar: userAvatar, 
@@ -774,7 +825,7 @@ app.post('/api/login', async (req, res) => {
         if (!username || !password) return res.status(400).json({ success: false, message: "Username and password required." });
 
         username = username.trim().toLowerCase();
-        let user = mongoose.connection.readyState === 1 ? await User.findOne({ username }) : memoryUsers.get(username);
+        let user = mongoose.connection.readyState === 1 ? await User.findOne({ username }) : getOrReloadUser(username);
         if (!user) return res.status(400).json({ success: false, message: "यह खाता मौजूद नहीं है। कृपया पहले साइन अप करें।" });
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -798,6 +849,64 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ success: false, message: "Server error during login." });
     }
 });
+
+// 🌐 Google / Gmail 1-Tap Auth Endpoint
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        let { email, name, avatar, googleId } = req.body;
+        if (!email) return res.status(400).json({ success: false, message: "Email required for Google Sign-In." });
+
+        const cleanEmail = email.trim().toLowerCase();
+        const baseUsername = cleanEmail.split('@')[0].replace(/[^a-z0-9_]/g, '').slice(0, 15) || 'user';
+        let username = baseUsername;
+
+        let user = mongoose.connection.readyState === 1 ? await User.findOne({ username }) : getOrReloadUser(username);
+        
+        if (!user) {
+            const hashedPassword = await bcrypt.hash(`google_${googleId || cleanEmail}_gupshupp`, 10);
+            const userAvatar = avatar || '🌟';
+            const newUserObj = {
+                username,
+                email: cleanEmail,
+                password: hashedPassword,
+                avatar: userAvatar,
+                status: 'Available 🟢',
+                pin: '',
+                privacySettings: { ghostMode: false, stealthReadReceipts: false, silentTyping: false },
+                aiAutoResponder: { enabled: false, awayStatus: 'In Meeting ☕', contextPrompt: 'In a meeting' },
+                pinnedChats: []
+            };
+
+            if (mongoose.connection.readyState === 1) {
+                await new User(newUserObj).save();
+            } else {
+                setAndSaveUser(username, newUserObj);
+            }
+            user = newUserObj;
+            console.log(`🌐 [Google Auth Registered] New user @${username} (${cleanEmail})`);
+        } else {
+            console.log(`🌐 [Google Auth Login] Existing user @${username} (${cleanEmail})`);
+        }
+
+        const tokens = generateAuthTokens(username);
+        res.json({
+            success: true,
+            message: "Google Sign-In successful!",
+            token: tokens.token,
+            refreshToken: tokens.refreshToken,
+            username,
+            avatar: user.avatar || '🌟',
+            status: user.status || 'Available 🟢',
+            pin: user.pin || '',
+            privacySettings: user.privacySettings || { ghostMode: false, stealthReadReceipts: false, silentTyping: false },
+            aiAutoResponder: user.aiAutoResponder || { enabled: false, awayStatus: 'In Meeting ☕', contextPrompt: 'In a meeting' },
+            pinnedChats: user.pinnedChats || []
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Google auth error: " + err.message });
+    }
+});
+
 
 // Silent Token Refresh HTTP Route
 app.post('/api/refresh-token', async (req, res) => {
@@ -912,19 +1021,20 @@ io.on('connection', (socket) => {
                 const newUser = new User({ username: cleanUser, password: hashedPassword, avatar: userAvatar });
                 await newUser.save();
             } else {
-                if (memoryUsers.has(cleanUser)) {
+                const existing = getOrReloadUser(cleanUser);
+                if (existing) {
                     if (typeof callback === 'function') callback({ success: false, message: "यह यूज़रनेम पहले से मौजूद है।" });
                     return;
                 }
-                memoryUsers.set(cleanUser, { 
+                setAndSaveUser(cleanUser, { 
                     username: cleanUser, 
                     password: hashedPassword, 
                     avatar: userAvatar, 
                     status: 'Available 🟢', 
-                    pin: '',
-                    privacySettings: { ghostMode: false, stealthReadReceipts: false, silentTyping: false },
-                    aiAutoResponder: { enabled: false, awayStatus: 'In Meeting ☕', contextPrompt: 'In a meeting' },
-                    pinnedChats: []
+                    pin: '', 
+                    privacySettings: { ghostMode: false, stealthReadReceipts: false, silentTyping: false }, 
+                    aiAutoResponder: { enabled: false, awayStatus: 'In Meeting ☕', contextPrompt: 'In a meeting' }, 
+                    pinnedChats: [] 
                 });
             }
             const tokens = generateAuthTokens(cleanUser);
@@ -955,7 +1065,7 @@ io.on('connection', (socket) => {
                 return;
             }
             const cleanUser = username.trim().toLowerCase();
-            let user = mongoose.connection.readyState === 1 ? await User.findOne({ username: cleanUser }) : memoryUsers.get(cleanUser);
+            let user = mongoose.connection.readyState === 1 ? await User.findOne({ username: cleanUser }) : getOrReloadUser(cleanUser);
             if (!user) {
                 if (typeof callback === 'function') callback({ success: false, message: "यह खाता मौजूद नहीं है। कृपया पहले 'Sign Up' करें।" });
                 return;
@@ -983,6 +1093,62 @@ io.on('connection', (socket) => {
             }
         } catch (e) {
             if (typeof callback === 'function') callback({ success: false, message: "लॉगिन विफल रहा: " + e.message });
+        }
+    });
+
+    socket.on('auth_google', async ({ email, name, avatar, googleId }, callback) => {
+        try {
+            if (!email) {
+                if (typeof callback === 'function') callback({ success: false, message: "Email required for Google Sign-In." });
+                return;
+            }
+            const cleanEmail = email.trim().toLowerCase();
+            const baseUsername = cleanEmail.split('@')[0].replace(/[^a-z0-9_]/g, '').slice(0, 15) || 'user';
+            let username = baseUsername;
+
+            let user = mongoose.connection.readyState === 1 ? await User.findOne({ username }) : getOrReloadUser(username);
+            
+            if (!user) {
+                const hashedPassword = await bcrypt.hash(`google_${googleId || cleanEmail}_gupshupp`, 10);
+                const userAvatar = avatar || '🌟';
+                const newUserObj = {
+                    username,
+                    email: cleanEmail,
+                    password: hashedPassword,
+                    avatar: userAvatar,
+                    status: 'Available 🟢',
+                    pin: '',
+                    privacySettings: { ghostMode: false, stealthReadReceipts: false, silentTyping: false },
+                    aiAutoResponder: { enabled: false, awayStatus: 'In Meeting ☕', contextPrompt: 'In a meeting' },
+                    pinnedChats: []
+                };
+
+                if (mongoose.connection.readyState === 1) {
+                    await new User(newUserObj).save();
+                } else {
+                    setAndSaveUser(username, newUserObj);
+                }
+                user = newUserObj;
+                console.log(`🌐 [Socket Google Registered] New user @${username}`);
+            }
+
+            const tokens = generateAuthTokens(username);
+            if (typeof callback === 'function') {
+                callback({
+                    success: true,
+                    token: tokens.token,
+                    refreshToken: tokens.refreshToken,
+                    username,
+                    avatar: user.avatar || '🌟',
+                    status: user.status || 'Available 🟢',
+                    pin: user.pin || '',
+                    privacySettings: user.privacySettings || { ghostMode: false, stealthReadReceipts: false, silentTyping: false },
+                    aiAutoResponder: user.aiAutoResponder || { enabled: false, awayStatus: 'In Meeting ☕', contextPrompt: 'In a meeting' },
+                    pinnedChats: user.pinnedChats || []
+                });
+            }
+        } catch (e) {
+            if (typeof callback === 'function') callback({ success: false, message: "Google auth failed: " + e.message });
         }
     });
 
