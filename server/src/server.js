@@ -1444,6 +1444,10 @@ io.on('connection', (socket) => {
             }
         }
 
+        const senderUserObj = memoryUsers.get(cleanSender.toLowerCase());
+        const senderVipBadge = msgData.vipBadge || senderUserObj?.vipBadge || '⭐ VIP';
+        const senderAvatarGlow = msgData.avatarGlow || senderUserObj?.avatarGlow || 'GOLD_HALO';
+
         const broadcastData = {
             _id: messageId,
             room: cleanRoom,
@@ -1461,6 +1465,8 @@ io.on('connection', (socket) => {
             starredBy: [],
             linkPreview,
             streak: streakInfo.streak,
+            vipBadge: senderVipBadge,
+            avatarGlow: senderAvatarGlow,
             transcript: '',
             disappearingTtl: disappearingTtl || 0,
             expiresAt: expiresAt,
@@ -2026,7 +2032,40 @@ io.on('connection', (socket) => {
         io.to(room).emit('message_deleted', { messageId });
     });
 
-    // 18. Disconnect
+    // 18. 👤 Update Profile & VIP Matrix Cosmetics
+    socket.on('update_profile', ({ username, avatar, status, pin, privacySettings, aiAutoResponder, vipBadge, avatarGlow, vipTier }) => {
+        if (!username) return;
+        const normalized = sanitizeIdentifier(username, 'user').toLowerCase();
+        let u = memoryUsers.get(normalized) || { username: normalized };
+        if (avatar) u.avatar = avatar;
+        if (status) u.status = sanitizeInputText(status);
+        if (pin !== undefined) u.pin = pin;
+        if (privacySettings) u.privacySettings = { ...(u.privacySettings || {}), ...privacySettings };
+        if (aiAutoResponder) u.aiAutoResponder = aiAutoResponder;
+        if (vipBadge) u.vipBadge = vipBadge;
+        if (avatarGlow) u.avatarGlow = avatarGlow;
+        if (vipTier) u.vipTier = vipTier;
+        memoryUsers.set(normalized, u);
+
+        if (mongoose.connection.readyState === 1) {
+            User.findOneAndUpdate(
+                { username: new RegExp(`^${normalized}$`, 'i') },
+                { $set: u },
+                { new: true, upsert: true }
+            ).catch(err => console.error("Update profile DB error:", err.message));
+        }
+
+        io.emit('user_profile_updated', {
+            username: normalized,
+            avatar: u.avatar,
+            status: u.status,
+            vipBadge: u.vipBadge,
+            avatarGlow: u.avatarGlow,
+            vipTier: u.vipTier
+        });
+    });
+
+    // 19. Disconnect
     socket.on('disconnect', () => {
         globalOnlineUsers.delete(socket.id);
         broadcastOnlineUsers();

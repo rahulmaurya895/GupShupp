@@ -885,6 +885,27 @@ export default function App() {
   const [floatingFlameMessageId, setFloatingFlameMessageId] = useState(null);
   const lastMessageTapRef = useRef({});
 
+  // ✨ Phase 8: Neon & Gold VIP Matrix Studio
+  const [userAvatarGlow, setUserAvatarGlow] = useState('GOLD_HALO'); // 'GOLD_HALO' | 'DIAMOND_CYBER' | 'FLAME_AURA' | 'MATRIX_NEON' | 'COSMIC_VIOLET' | 'NONE'
+  const [showVipStudioModal, setShowVipStudioModal] = useState(false);
+
+  const getGlowRingStyle = (glowType) => {
+    switch (glowType) {
+      case 'GOLD_HALO':
+        return { borderColor: '#f59e0b', borderWidth: 2, shadowColor: '#f59e0b', shadowRadius: 8, shadowOpacity: 0.85, elevation: 6 };
+      case 'DIAMOND_CYBER':
+        return { borderColor: '#38bdf8', borderWidth: 2, shadowColor: '#38bdf8', shadowRadius: 8, shadowOpacity: 0.85, elevation: 6 };
+      case 'FLAME_AURA':
+        return { borderColor: '#ef4444', borderWidth: 2, shadowColor: '#ef4444', shadowRadius: 8, shadowOpacity: 0.85, elevation: 6 };
+      case 'MATRIX_NEON':
+        return { borderColor: '#22c55e', borderWidth: 2, shadowColor: '#22c55e', shadowRadius: 8, shadowOpacity: 0.85, elevation: 6 };
+      case 'COSMIC_VIOLET':
+        return { borderColor: '#a855f7', borderWidth: 2, shadowColor: '#a855f7', shadowRadius: 8, shadowOpacity: 0.85, elevation: 6 };
+      default:
+        return { borderColor: 'transparent', borderWidth: 0 };
+    }
+  };
+
   const fetchRegisteredUsers = async () => {
     try {
       setIsLoadingUsersList(true);
@@ -1032,6 +1053,50 @@ export default function App() {
       navBg: 'rgba(7, 32, 20, 0.95)',
       glow: '#10b981',
       tickBlue: '#34d399'
+    },
+    IMPERIAL_GOLD: {
+      id: 'IMPERIAL_GOLD',
+      name: '👑 Imperial Gold AMOLED',
+      bg: '#000000',
+      surface: '#0d0d0d',
+      card: '#18181b',
+      border: '#b45309',
+      text: '#fef3c7',
+      textMuted: '#fbbf24',
+      accent: '#f59e0b',
+      accentLight: '#fbbf24',
+      accentSecondary: '#78350f',
+      bubbleMine: '#78350f',
+      bubbleOther: '#1c1917',
+      bubbleAi: '#292524',
+      aiBorder: '#f59e0b',
+      headerBg: '#0a0a0a',
+      inputBg: '#141414',
+      navBg: 'rgba(10, 10, 10, 0.98)',
+      glow: '#f59e0b',
+      tickBlue: '#fbbf24'
+    },
+    CYBER_MATRIX: {
+      id: 'CYBER_MATRIX',
+      name: '⚡ Cyberpunk Matrix Glow',
+      bg: '#020b05',
+      surface: '#061a0c',
+      card: '#0c2e15',
+      border: '#15803d',
+      text: '#dcfce7',
+      textMuted: '#4ade80',
+      accent: '#22c55e',
+      accentLight: '#4ade80',
+      accentSecondary: '#14532d',
+      bubbleMine: '#14532d',
+      bubbleOther: '#061a0c',
+      bubbleAi: '#0b2413',
+      aiBorder: '#22c55e',
+      headerBg: '#03120b',
+      inputBg: '#061a0c',
+      navBg: 'rgba(3, 18, 11, 0.98)',
+      glow: '#22c55e',
+      tickBlue: '#4ade80'
     },
     FROST: {
       id: 'FROST',
@@ -1193,6 +1258,10 @@ export default function App() {
         const savedRecent = await Storage.getItem('@gupshupp_recent_chats');
         const savedSsProt = await Storage.getItem('@gupshupp_ss_protection');
         if (savedSsProt) setScreenshotProtectionMode(savedSsProt);
+        const savedGlow = await Storage.getItem('@gupshupp_avatar_glow');
+        if (savedGlow) setUserAvatarGlow(savedGlow);
+        const savedVipBadge = await Storage.getItem('@gupshupp_vip_badge');
+        if (savedVipBadge) setUserVipBadge(savedVipBadge);
 
         if (savedAvatar) setUserAvatar(savedAvatar);
         if (savedStatus) setUserStatus(savedStatus);
@@ -2991,24 +3060,49 @@ export default function App() {
               {/* 🌟 Profile Header Banner (WhatsApp/Telegram Style) */}
               <TouchableOpacity 
                 activeOpacity={0.85}
-                style={[styles.profileStudioCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 16 }]}
+                style={[styles.profileStudioCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 12 }]}
                 onPress={() => setActiveSettingsCategory('ACCOUNT')}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ position: 'relative' }}>
-                    <Text style={[styles.profileBigAvatar, { fontSize: 48 }]}>{userAvatar}</Text>
-                    <View style={{ position: 'absolute', bottom: 2, right: 2, backgroundColor: theme.accent, borderRadius: 10, padding: 3 }}>
+                    <View style={[styles.avatarGlowRing, getGlowRingStyle(userAvatarGlow), { width: 62, height: 62, borderRadius: 31, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.card }]}>
+                      <Text style={[styles.profileBigAvatar, { fontSize: 34 }]}>{userAvatar}</Text>
+                    </View>
+                    <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: theme.accent, borderRadius: 10, padding: 3 }}>
                       <Text style={{ fontSize: 10 }}>✏️</Text>
                     </View>
                   </View>
                   <View style={{ flex: 1, marginLeft: 14 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={[styles.profileUsername, { color: theme.text, fontSize: 18 }]}>@{currentUser}</Text>
-                      <Text style={{ fontSize: 12, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: theme.card, color: '#f59e0b', fontWeight: '800' }}>{userVipBadge}</Text>
+                      <Text style={{ fontSize: 11, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: '#f59e0b', borderWidth: 1, color: '#f59e0b', fontWeight: '900' }}>{userVipBadge}</Text>
                     </View>
                     <Text style={[styles.profileStatusText, { color: theme.accentLight, marginTop: 2 }]} numberOfLines={1}>{userStatus}</Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>Account details & avatar badging ➔</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>Account details & privacy settings ➔</Text>
                   </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* ✨ GupShupp VIP Elite Matrix Studio Banner */}
+              <TouchableOpacity 
+                activeOpacity={0.85}
+                style={[styles.vipBannerCard, { borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.12)', marginBottom: 16 }]}
+                onPress={() => setShowVipStudioModal(true)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={[styles.avatarGlowRing, getGlowRingStyle(userAvatarGlow), { width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.card }]}>
+                      <Text style={{ fontSize: 24 }}>{userAvatar}</Text>
+                    </View>
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '900', color: '#f59e0b' }}>✨ VIP Elite Studio</Text>
+                        <Text style={{ fontSize: 10, backgroundColor: '#f59e0b', color: '#000000', fontWeight: '900', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>FOUNDER PASS</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>हेलो रिंग्स, स्टेटस बैज व VIP थीम्स कस्टमाइज़ करें ➔</Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 20, color: '#f59e0b', fontWeight: '900' }}>👑</Text>
                 </View>
               </TouchableOpacity>
 
@@ -3935,6 +4029,158 @@ export default function App() {
           </View>
         </Modal>
 
+        {/* ✨ Modal: GupShupp VIP Elite Matrix Studio */}
+        <Modal visible={showVipStudioModal} transparent animationType="slide" onRequestClose={() => setShowVipStudioModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: '#f59e0b', borderWidth: 1.5, width: '92%', maxWidth: 480, maxHeight: '88%' }]}>
+              
+              {/* Studio Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 24 }}>✨</Text>
+                  <View>
+                    <Text style={[styles.modalTitle, { color: '#f59e0b', fontSize: 18, marginBottom: 0 }]}>VIP Elite Studio</Text>
+                    <Text style={{ fontSize: 11, color: theme.textMuted }}>Custom Halo Rings, Badges & VIP Themes</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setShowVipStudioModal(false)}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* 🌟 Live Holographic VIP Avatar Preview Card */}
+                <View style={[styles.vipPreviewCard, { backgroundColor: '#000000', borderColor: '#f59e0b' }]}>
+                  <View style={[styles.avatarGlowRing, getGlowRingStyle(userAvatarGlow), { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', backgroundColor: '#111827' }]}>
+                    <Text style={{ fontSize: 38 }}>{userAvatar}</Text>
+                  </View>
+                  <View style={{ alignItems: 'center', marginTop: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>@{currentUser}</Text>
+                      <Text style={{ fontSize: 12, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: '#f59e0b', borderWidth: 1, color: '#f59e0b', fontWeight: '900' }}>
+                        {userVipBadge}
+                      </Text>
+                    </View>
+                    <Text style={{ color: '#22c55e', fontSize: 12, fontWeight: '800', marginTop: 4 }}>👑 FOUNDING LIFETIME VIP ACTIVE</Text>
+                  </View>
+                </View>
+
+                {/* Section 1: 🌟 Animated Halo Rings */}
+                <Text style={[styles.vipSectionTitle, { color: theme.text, marginTop: 16 }]}>1. 🌟 हेलो रिंग्स (Animated Halo Rings)</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {[
+                    { id: 'GOLD_HALO', label: '👑 Imperial Gold', color: '#f59e0b', desc: 'Radiating Liquid Gold' },
+                    { id: 'DIAMOND_CYBER', label: '💎 Diamond Cyber', color: '#38bdf8', desc: 'Holographic Laser Blue' },
+                    { id: 'FLAME_AURA', label: '🔥 Flame Legend', color: '#ef4444', desc: 'Crimson Flame Aura' },
+                    { id: 'MATRIX_NEON', label: '⚡ Matrix Neon', color: '#22c55e', desc: 'Radioactive Circuit Glow' },
+                    { id: 'COSMIC_VIOLET', label: '🔮 Cosmic Nebula', color: '#a855f7', desc: 'Deep Galaxy Ultraviolet' },
+                    { id: 'NONE', label: '✕ None', color: '#8696a0', desc: 'Standard Profile' }
+                  ].map((halo) => (
+                    <TouchableOpacity
+                      key={halo.id}
+                      style={[
+                        styles.vipChoiceBtn,
+                        { 
+                          backgroundColor: userAvatarGlow === halo.id ? 'rgba(245, 158, 11, 0.15)' : theme.card,
+                          borderColor: userAvatarGlow === halo.id ? halo.color : theme.border,
+                          borderWidth: userAvatarGlow === halo.id ? 2 : 1
+                        }
+                      ]}
+                      onPress={async () => {
+                        setUserAvatarGlow(halo.id);
+                        await Storage.setItem('@gupshupp_avatar_glow', halo.id);
+                        socket.emit('update_profile', { username: currentUser, avatarGlow: halo.id, vipBadge: userVipBadge });
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ color: halo.color, fontWeight: '800', fontSize: 13 }}>{halo.label}</Text>
+                        {userAvatarGlow === halo.id && <Text style={{ color: halo.color, fontWeight: '900', fontSize: 12 }}>✓</Text>}
+                      </View>
+                      <Text style={{ color: theme.textMuted, fontSize: 10, marginTop: 2 }}>{halo.desc}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Section 2: 🏷️ Prestige Status Badges */}
+                <Text style={[styles.vipSectionTitle, { color: theme.text, marginTop: 18 }]}>2. 🏷️ प्रेस्टीज स्टेटस बैज (VIP Badges)</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {[
+                    '👑 Imperial Gold',
+                    '💎 Diamond Pro',
+                    '🔥 Flame Legend',
+                    '⚡ Cyber Matrix',
+                    '🔮 Cosmic Star',
+                    '⭐ VIP Member'
+                  ].map((badge) => (
+                    <TouchableOpacity
+                      key={badge}
+                      style={[
+                        styles.badgeChoicePill,
+                        { 
+                          backgroundColor: userVipBadge === badge ? 'rgba(245, 158, 11, 0.2)' : theme.card,
+                          borderColor: userVipBadge === badge ? '#f59e0b' : theme.border
+                        }
+                      ]}
+                      onPress={async () => {
+                        setUserVipBadge(badge);
+                        await Storage.setItem('@gupshupp_vip_badge', badge);
+                        socket.emit('update_profile', { username: currentUser, vipBadge: badge, avatarGlow: userAvatarGlow });
+                      }}
+                    >
+                      <Text style={{ color: userVipBadge === badge ? '#f59e0b' : theme.text, fontWeight: '800', fontSize: 12 }}>
+                        {badge} {userVipBadge === badge ? '✓' : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Section 3: 🎨 VIP Exclusive Themes */}
+                <Text style={[styles.vipSectionTitle, { color: theme.text, marginTop: 18 }]}>3. 🎨 एक्सक्लूसिव VIP थीम्स (Signature Themes)</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.vipThemeCard,
+                      { 
+                        backgroundColor: '#000000', 
+                        borderColor: activeThemeId === 'IMPERIAL_GOLD' ? '#f59e0b' : '#333333',
+                        borderWidth: activeThemeId === 'IMPERIAL_GOLD' ? 2 : 1
+                      }
+                    ]}
+                    onPress={() => handleSelectTheme('IMPERIAL_GOLD')}
+                  >
+                    <Text style={{ color: '#f59e0b', fontWeight: '900', fontSize: 13 }}>👑 Imperial Gold</Text>
+                    <Text style={{ color: '#d97706', fontSize: 10, marginTop: 2 }}>AMOLED Pitch Black</Text>
+                    {activeThemeId === 'IMPERIAL_GOLD' && <Text style={{ color: '#f59e0b', fontSize: 11, fontWeight: '900', marginTop: 4 }}>Applied ✓</Text>}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.vipThemeCard,
+                      { 
+                        backgroundColor: '#050a06', 
+                        borderColor: activeThemeId === 'CYBER_MATRIX' ? '#22c55e' : '#333333',
+                        borderWidth: activeThemeId === 'CYBER_MATRIX' ? 2 : 1
+                      }
+                    ]}
+                    onPress={() => handleSelectTheme('CYBER_MATRIX')}
+                  >
+                    <Text style={{ color: '#22c55e', fontWeight: '900', fontSize: 13 }}>⚡ Cyber Matrix</Text>
+                    <Text style={{ color: '#4ade80', fontSize: 10, marginTop: 2 }}>Obsidian Green Shimmer</Text>
+                    {activeThemeId === 'CYBER_MATRIX' && <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '900', marginTop: 4 }}>Applied ✓</Text>}
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.primaryBtn, { backgroundColor: '#f59e0b', marginTop: 22, height: 44 }]} 
+                  onPress={() => setShowVipStudioModal(false)}
+                >
+                  <Text style={[styles.primaryBtnText, { color: '#000000', fontWeight: '900' }]}>✨ Done / प्रोफाइल अपडेट करें</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* 🌐 Modal: Language Selector */}
         <Modal visible={showLanguageModal} transparent animationType="slide" onRequestClose={() => setShowLanguageModal(false)}>
           <View style={styles.modalOverlay}>
@@ -4303,6 +4549,21 @@ export default function App() {
                     lastMessageTapRef.current[item._id] = now;
                   };
 
+                  const isVipGold = (item.vipBadge && item.vipBadge.includes('👑')) || (isMine && userVipBadge.includes('👑'));
+                  const isVipDiamond = (item.vipBadge && item.vipBadge.includes('💎')) || (isMine && userVipBadge.includes('💎'));
+                  const isVipFlame = (item.vipBadge && item.vipBadge.includes('🔥')) || (isMine && userVipBadge.includes('🔥'));
+                  const isVipMatrix = (item.vipBadge && item.vipBadge.includes('⚡')) || (isMine && userVipBadge.includes('⚡'));
+                  const isVipCosmic = (item.vipBadge && item.vipBadge.includes('🔮')) || (isMine && userVipBadge.includes('🔮'));
+
+                  const getVipBubbleBorder = () => {
+                    if (isVipGold) return { borderColor: '#f59e0b', borderWidth: 1 };
+                    if (isVipDiamond) return { borderColor: '#38bdf8', borderWidth: 1 };
+                    if (isVipFlame) return { borderColor: '#ef4444', borderWidth: 1 };
+                    if (isVipMatrix) return { borderColor: '#22c55e', borderWidth: 1 };
+                    if (isVipCosmic) return { borderColor: '#a855f7', borderWidth: 1 };
+                    return { borderWidth: 0 };
+                  };
+
                   return (
                     <TouchableOpacity 
                       activeOpacity={0.85}
@@ -4313,6 +4574,7 @@ export default function App() {
                       <View style={[
                         styles.bubble, 
                         isMine ? [styles.bubbleMineStyle, { backgroundColor: theme.bubbleMine }] : [styles.bubbleOtherStyle, { backgroundColor: theme.bubbleOther }],
+                        getVipBubbleBorder(),
                         { borderRadius: getBubbleRadius(), position: 'relative' }
                       ]}>
                         {/* 🎯 Double-Tap Quick Flame Burst Floating Animation */}
@@ -4325,7 +4587,11 @@ export default function App() {
                         {!isMine && (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                             <Text style={[styles.senderName, { color: theme.accentLight, marginBottom: 0 }]}>@{item.sender}</Text>
-                            {item.vipBadge && <Text style={{ fontSize: 10, fontWeight: '800' }}>{item.vipBadge}</Text>}
+                            {item.vipBadge && (
+                              <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.18)', borderColor: '#f59e0b', borderWidth: 0.8, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                                <Text style={{ fontSize: 9, fontWeight: '900', color: '#f59e0b' }}>{item.vipBadge}</Text>
+                              </View>
+                            )}
                             {!isDirectChat && (
                               <Text style={{ fontSize: 9, fontWeight: '800', color: (item.sender === 'admin' || item.sender === 'rahul') ? '#f59e0b' : '#38bdf8', backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 }}>
                                 {(item.sender === 'admin' || item.sender === 'rahul') ? '👑 Admin' : '👤 Member'}
@@ -6194,5 +6460,12 @@ const styles = StyleSheet.create({
   obfuscateTitle: { color: '#ffffff', fontSize: 20, fontWeight: '900', textAlign: 'center' },
   obfuscateSub: { color: '#8696a0', fontSize: 13, textAlign: 'center', marginTop: 6 },
   floatingFlameAnim: { position: 'absolute', top: -20, right: 10, backgroundColor: 'rgba(245, 158, 11, 0.25)', borderColor: '#f59e0b', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, zIndex: 10 },
-  floatingFlameText: { color: '#f59e0b', fontWeight: '900', fontSize: 13 }
+  floatingFlameText: { color: '#f59e0b', fontWeight: '900', fontSize: 13 },
+  vipBannerCard: { padding: 14, borderRadius: 16, borderWidth: 1.5 },
+  avatarGlowRing: { justifyContent: 'center', alignItems: 'center' },
+  vipPreviewCard: { padding: 20, borderRadius: 20, borderWidth: 1.5, alignItems: 'center', marginVertical: 8 },
+  vipSectionTitle: { fontSize: 14, fontWeight: '900', marginBottom: 6 },
+  vipChoiceBtn: { width: '48%', padding: 10, borderRadius: 12, marginBottom: 4 },
+  badgeChoicePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, marginBottom: 4 },
+  vipThemeCard: { flex: 1, padding: 12, borderRadius: 14, alignItems: 'center' }
 });
