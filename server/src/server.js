@@ -242,6 +242,9 @@ function broadcastOnlineUsers() {
     io.emit('online_users_list', Array.from(new Set(visibleUsers)));
 }
 
+// ⚡ Snapchat-Style Snap Streaks Store
+const userStreaksStore = new Map();
+
 // 🔔 Expo Push Notification Dispatcher
 async function sendPushNotification(targetUsers, title, body, data = {}) {
     const messages = [];
@@ -1297,6 +1300,14 @@ io.on('connection', (socket) => {
         if (!isUserGhost(currentUsername)) {
             socket.to(cleanRoom).emit('messages_read', { room: cleanRoom, reader: currentUsername });
         }
+
+        // ⚡ Snap Streaks Sync for DMs
+        if (cleanRoom.startsWith('dm_')) {
+            const streakData = userStreaksStore.get(cleanRoom);
+            if (streakData) {
+                socket.emit('streak_updated', { room: cleanRoom, streak: streakData.streak, lastActiveDate: streakData.lastActiveDate });
+            }
+        }
     });
 
     // 2. Send Super Message (Text, Image, Audio, Doc, Poll, AI) - With XSS Sanitization
@@ -1313,6 +1324,33 @@ io.on('connection', (socket) => {
         const cleanRoom = sanitizeIdentifier(room, 'general');
         const cleanSender = sanitizeIdentifier(sender, 'user');
         const cleanText = sanitizeInputText(text);
+
+        // ⚡ Snapchat-Style Snap Streaks Calculation
+        let currentStreak = 0;
+        if (cleanRoom.startsWith('dm_')) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+            let streakData = userStreaksStore.get(cleanRoom);
+
+            if (!streakData) {
+                streakData = { streak: 1, lastActiveDate: todayStr, lastSender: cleanSender };
+            } else {
+                if (streakData.lastActiveDate === todayStr) {
+                    // Maintained today
+                } else if (streakData.lastActiveDate === yesterday) {
+                    streakData.streak += 1;
+                    streakData.lastActiveDate = todayStr;
+                    streakData.lastSender = cleanSender;
+                } else {
+                    streakData.streak = 1;
+                    streakData.lastActiveDate = todayStr;
+                    streakData.lastSender = cleanSender;
+                }
+            }
+            userStreaksStore.set(cleanRoom, streakData);
+            currentStreak = streakData.streak;
+            io.to(cleanRoom).emit('streak_updated', { room: cleanRoom, streak: currentStreak, lastActiveDate: streakData.lastActiveDate });
+        }
 
         // 🛡️ Group Admin Controls & Mute Enforcement Guard
         const roomSettings = roomAdminSettingsStore.get(cleanRoom);
@@ -1359,6 +1397,7 @@ io.on('connection', (socket) => {
             readBy: [cleanSender],
             starredBy: [],
             linkPreview,
+            streak: currentStreak,
             transcript: '',
             disappearingTtl: disappearingTtl || 0,
             expiresAt: expiresAt,
@@ -1500,6 +1539,27 @@ io.on('connection', (socket) => {
                 })();
             }
         }
+    });
+
+    // 📸 Snapchat-Style Screenshot & Screen Capture Alert Engine
+    socket.on('screenshot_taken', ({ room, user }) => {
+        if (!room || !user) return;
+        const cleanRoom = sanitizeIdentifier(room, 'general');
+        const cleanUser = sanitizeIdentifier(user, 'user');
+        const alertMsg = {
+            _id: `alert_ss_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+            room: cleanRoom,
+            sender: '🛡️ Security Alert',
+            text: `📸 @${cleanUser} took a screenshot of the chat.`,
+            type: 'screenshot_alert',
+            isSystem: true,
+            isScreenshotAlert: true,
+            status: 'read',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: new Date()
+        };
+        io.to(cleanRoom).emit('receive_message', alertMsg);
+        io.to(cleanRoom).emit('screenshot_alert', { room: cleanRoom, user: cleanUser, time: alertMsg.time });
     });
 
     // 3. In-Chat Polls & Real-Time Voting Engine (With Race Condition Lock)

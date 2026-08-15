@@ -874,6 +874,10 @@ export default function App() {
   const [isLoadingUsersList, setIsLoadingUsersList] = useState(false);
   const [pinnedChatMessage, setPinnedChatMessage] = useState(null);
   const [activeSettingsCategory, setActiveSettingsCategory] = useState(null); // 'ACCOUNT' | 'PRIVACY' | 'APPEARANCE' | 'STORAGE' | 'GPAI'
+  
+  // ⚡ Phase 7: Snapchat-Style Snap Streaks & Screenshot Alerts
+  const [activeRoomStreak, setActiveRoomStreak] = useState(0);
+  const [screenshotAlertToast, setScreenshotAlertToast] = useState('');
 
   const fetchRegisteredUsers = async () => {
     try {
@@ -1289,11 +1293,15 @@ export default function App() {
     socket.on('receive_message', (data) => {
       setMessages((prev) => [...prev, data]);
 
+      if (data.streak !== undefined && data.room === activeRoom) {
+        setActiveRoomStreak(data.streak);
+      }
+
       // Update Recent Chats snippet
       setRecentChats((prev) => {
         const title = data.room.startsWith('dm_') ? `@${data.sender}` : `#${data.room}`;
         const existingIdx = prev.findIndex(c => c.id === data.room);
-        const snippet = data.type === 'image' ? '📷 Photo' : (data.type === 'audio' ? '🎙️ Voice Note' : (data.type === 'poll' ? `📊 Poll: ${data.pollData?.question}` : decryptText(data.text)));
+        const snippet = data.type === 'image' ? '📷 Photo' : (data.type === 'audio' ? '🎙️ Voice Note' : (data.type === 'poll' ? `📊 Poll: ${data.pollData?.question}` : (data.type === 'screenshot_alert' ? '📸 Screenshot taken' : decryptText(data.text))));
         const newEntry = {
           id: data.room,
           title,
@@ -1301,6 +1309,7 @@ export default function App() {
           lastMsg: snippet,
           time: data.time || 'Just now',
           unread: (existingIdx > -1 ? prev[existingIdx].unread : 0) + (data.sender !== currentUser ? 1 : 0),
+          streak: data.streak || (existingIdx > -1 ? prev[existingIdx].streak : 0),
           avatar: data.isAi ? '🤖' : (data.room.startsWith('dm_') ? '👤' : '👥')
         };
         let finalRecent = [];
@@ -1339,6 +1348,28 @@ export default function App() {
       // 👁️ Real-Time Two-Phone Read Receipt: Auto-mark as read if actively viewing this chat room
       if (data && data.room && data.sender !== currentUser) {
         socket.emit('mark_as_read', { room: data.room, username: currentUser, isStealth: ghostMode });
+      }
+    });
+
+    socket.on('streak_updated', ({ room, streak }) => {
+      if (room === activeRoom) setActiveRoomStreak(streak);
+      setRecentChats((prev) => {
+        const existingIdx = prev.findIndex(c => c.id === room);
+        if (existingIdx > -1) {
+          const updated = [...prev];
+          updated[existingIdx] = { ...updated[existingIdx], streak };
+          Storage.setItem('@gupshupp_recent_chats', JSON.stringify(updated)).catch(() => {});
+          return updated;
+        }
+        return prev;
+      });
+    });
+
+    socket.on('screenshot_alert', ({ room, user, time }) => {
+      setScreenshotAlertToast(`📸 @${user} took a screenshot of the chat.`);
+      setTimeout(() => setScreenshotAlertToast(''), 4500);
+      if (Platform.OS !== 'web' && Vibration) {
+        Vibration.vibrate(400);
       }
     });
 
@@ -1442,6 +1473,25 @@ export default function App() {
       socket.off('game_state_update');
     };
   }, [currentUser, ghostMode]);
+
+  // 📸 Snapchat-Style Screenshot & Screen Capture Detection for Web
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handleKeyCapture = (e) => {
+        if (
+          e.key === 'PrintScreen' || 
+          (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 's')) ||
+          (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5'))
+        ) {
+          if (activeRoom && currentUser) {
+            socket.emit('screenshot_taken', { room: activeRoom, user: currentUser });
+          }
+        }
+      };
+      window.addEventListener('keyup', handleKeyCapture);
+      return () => window.removeEventListener('keyup', handleKeyCapture);
+    }
+  }, [activeRoom, currentUser]);
 
   // 📶 Adaptive Network Speed & Throttling Detector (50kbps Slow Network Protection)
   useEffect(() => {
@@ -2752,6 +2802,13 @@ export default function App() {
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             {isPinned && <Text style={styles.pinIcon}>📌</Text>}
                             <Text style={[styles.recentChatTitle, { color: theme.text }]}>{chat.title}</Text>
+                            {chat.streak > 0 && (
+                              <View style={styles.streakBadgePill}>
+                                <Text style={styles.streakBadgeText}>
+                                  {chat.streak >= 100 ? '👑' : (chat.streak >= 30 ? '💎' : (chat.streak >= 7 ? '⚡' : '🔥'))} {chat.streak}
+                                </Text>
+                              </View>
+                            )}
                           </View>
                           <Text style={[styles.recentChatTime, { color: theme.textMuted }]}>{chat.time}</Text>
                         </View>
@@ -3939,7 +3996,14 @@ export default function App() {
               <Text style={{ fontSize: 18 }}>{isDirectChat ? '👤' : '👥'}</Text>
             </View>
             <View style={{ marginLeft: 8, flex: 1 }}>
-              <Text style={[styles.chatTitleText, { color: theme.text }]} numberOfLines={1}>{chatTitle}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.chatTitleText, { color: theme.text }]} numberOfLines={1}>{chatTitle}</Text>
+                {activeRoomStreak > 0 && (
+                  <Text style={styles.headerStreakText}>
+                    {activeRoomStreak >= 100 ? '👑' : (activeRoomStreak >= 30 ? '💎' : (activeRoomStreak >= 7 ? '⚡' : '🔥'))} {activeRoomStreak}
+                  </Text>
+                )}
+              </View>
               <View style={styles.chatSubTitleRow}>
                 <Text style={[styles.chatSubTitleText, { color: theme.accentLight }]}>
                   {typingUser ? `${typingUser} typing... ✍️` : (isDirectChat ? (ghostMode ? '👻 Incognito' : 'Online 🟢') : `👥 ${activeMembersCount} members`)}
@@ -3969,6 +4033,13 @@ export default function App() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* 📸 Screenshot Alert Live Toast Notification */}
+        {!!screenshotAlertToast && (
+          <View style={styles.screenshotAlertBanner}>
+            <Text style={styles.screenshotAlertText}>{screenshotAlertToast}</Text>
+          </View>
+        )}
 
         {/* 📌 Telegram-Style Pinned Message Sticky Banner */}
         {pinnedChatMessage && (
@@ -4103,6 +4174,15 @@ export default function App() {
                   const isStarred = item.starredBy && item.starredBy.includes(currentUser);
                   const translatedText = translatedMessages[item._id];
                   const transcribedText = transcribedAudioMap[item._id];
+
+                  // 📸 Snapchat-Style Screenshot Alert Pill
+                  if (item.type === 'screenshot_alert' || item.isScreenshotAlert) {
+                    return (
+                      <View style={styles.screenshotAlertBanner}>
+                        <Text style={styles.screenshotAlertText}>{item.text} • {item.time}</Text>
+                      </View>
+                    );
+                  }
 
                   // AI Assistant Message Bubble (GP AI Squad)
                   if (isAiSender) {
@@ -5450,7 +5530,15 @@ export default function App() {
               <View style={[styles.oneTimeTimerFill, { width: `${((activeOneTimePhoto?.remainingSec || 5) / 5) * 100}%` }]} />
             </View>
             {activeOneTimePhoto?.image && (
-              <Image source={{ uri: activeOneTimePhoto.image }} style={styles.oneTimeFullImage} resizeMode="contain" />
+              <View style={{ flex: 1, position: 'relative', justifyContent: 'center', alignItems: 'center' }}>
+                <Image source={{ uri: activeOneTimePhoto.image }} style={styles.oneTimeFullImage} resizeMode="contain" />
+                {/* 🛡️ Anti-Leak Confidential Watermark */}
+                <View style={styles.watermarkOverlay} pointerEvents="none">
+                  <Text style={styles.watermarkText}>🔒 CONFIDENTIAL • @{currentUser} • DO NOT RECORD</Text>
+                  <Text style={styles.watermarkText}>🔒 CONFIDENTIAL • @{currentUser} • DO NOT RECORD</Text>
+                  <Text style={styles.watermarkText}>🔒 CONFIDENTIAL • @{currentUser} • DO NOT RECORD</Text>
+                </View>
+              </View>
             )}
           </View>
         </Modal>
@@ -5972,5 +6060,12 @@ const styles = StyleSheet.create({
   settingsCategoryIconBox: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   settingsCategoryIcon: { fontSize: 18 },
   settingsCategoryTitle: { fontSize: 14, fontWeight: '800' },
-  settingsCategorySub: { fontSize: 11, marginTop: 2 }
+  settingsCategorySub: { fontSize: 11, marginTop: 2 },
+  streakBadgePill: { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderWidth: 1, borderColor: '#f59e0b', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 6 },
+  streakBadgeText: { fontSize: 11, fontWeight: '900', color: '#f59e0b' },
+  headerStreakText: { fontSize: 13, fontWeight: '900', color: '#f59e0b', marginLeft: 4 },
+  screenshotAlertBanner: { alignSelf: 'center', backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 14, marginVertical: 8, maxWidth: '90%' },
+  screenshotAlertText: { color: '#ef4444', fontSize: 12, fontWeight: '800', textAlign: 'center' },
+  watermarkOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'space-around', alignItems: 'center', opacity: 0.25, transform: [{ rotate: '-25deg' }] },
+  watermarkText: { color: '#ffffff', fontSize: 14, fontWeight: '900', letterSpacing: 2 }
 });
