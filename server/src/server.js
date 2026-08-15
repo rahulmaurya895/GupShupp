@@ -220,11 +220,24 @@ function isDuplicateMessage(msgId) {
     return false;
 }
 
+// 🥷 Privacy & Stealth Pro Stores
 const userPrivacySettingsCache = new Map(); // username -> privacySettings
+const stealthProStore = new Map(); // username -> { enabled, spoofPresence, perChatStealth: Set<room>, zeroTraceRead, autoWipeOnExit }
 
-function isUserGhost(username) {
+function isStealthForRoom(username, room) {
+    if (!username || !room) return false;
+    const normalized = username.trim().toLowerCase();
+    const pro = stealthProStore.get(normalized);
+    if (pro?.enabled && pro?.perChatStealth && pro.perChatStealth.has(room)) return true;
+    return false;
+}
+
+function isUserGhost(username, room = null) {
     if (!username) return false;
     const normalized = username.trim().toLowerCase();
+    if (room && isStealthForRoom(normalized, room)) return true;
+    const pro = stealthProStore.get(normalized);
+    if (pro?.enabled && pro?.spoofPresence === 'ALWAYS_OFFLINE') return true;
     const cached = userPrivacySettingsCache.get(normalized);
     if (cached?.ghostMode || cached?.stealthReadReceipts || cached?.silentTyping) return true;
     const userObj = memoryUsers.get(normalized);
@@ -1766,9 +1779,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 5. Read Receipts (Stealth & Ghost Mode check)
-    socket.on('mark_as_read', ({ room, username, isStealth }) => {
-        if (!room || !username || isStealth || isUserGhost(username)) return;
+    // 5. Read Receipts (Stealth Pro & Ghost Mode check)
+    socket.on('mark_as_read', ({ room, username, isStealth, isZeroTrace }) => {
+        if (!room || !username || isStealth || isZeroTrace || isUserGhost(username, room)) return;
         socket.to(room).emit('messages_read', { room, reader: username });
         if (mongoose.connection.readyState === 1) {
             Message.updateMany({ room, sender: { $ne: username } }, { $addToSet: { readBy: username }, status: 'read' })
@@ -1825,13 +1838,13 @@ io.on('connection', (socket) => {
 
     // 9. Typing Indicators (Silent & Ghost Mode check)
     socket.on('typing_start', ({ room, username, isSilent }) => {
-        if (room && !isSilent && !isUserGhost(username || currentUsername)) {
+        if (room && !isSilent && !isUserGhost(username || currentUsername, room)) {
             socket.to(room).emit('user_typing', { username, isTyping: true });
         }
     });
 
     socket.on('typing_stop', ({ room, username }) => {
-        if (room && !isUserGhost(username || currentUsername)) {
+        if (room && !isUserGhost(username || currentUsername, room)) {
             socket.to(room).emit('user_typing', { username, isTyping: false });
         }
     });
@@ -2065,7 +2078,49 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 19. Disconnect
+    // 19. 🥷 Stealth Pro Engine (Per-Chat Stealth, Presence Spoofer, Zero-Trace)
+    socket.on('update_stealth_pro', ({ username, settings }, callback) => {
+        if (!username || !settings) return;
+        const normalized = sanitizeIdentifier(username, 'user').toLowerCase();
+        const current = stealthProStore.get(normalized) || {};
+        const updated = {
+            ...current,
+            ...settings,
+            perChatStealth: new Set(settings.perChatStealth || (current.perChatStealth ? Array.from(current.perChatStealth) : []))
+        };
+        stealthProStore.set(normalized, updated);
+        broadcastOnlineUsers();
+        if (typeof callback === 'function') callback({ success: true, settings: { ...updated, perChatStealth: Array.from(updated.perChatStealth) } });
+    });
+
+    // 20. 💥 Self-Destruct Session Vault (Instant Chat Wiping)
+    socket.on('wipe_chat_session', ({ room, username }, callback) => {
+        if (!room) return;
+        const cleanRoom = sanitizeIdentifier(room, 'general');
+
+        // Scrub in-memory messages
+        for (const [id, msg] of messageStore.entries()) {
+            if (msg.room === cleanRoom) {
+                messageStore.delete(id);
+            }
+        }
+
+        // Scrub MongoDB messages if connected
+        if (mongoose.connection.readyState === 1) {
+            Message.deleteMany({ room: cleanRoom }).catch(err => console.error("Wipe DB error:", err.message));
+        }
+
+        // Broadcast wipe event to room
+        io.to(cleanRoom).emit('chat_session_wiped', {
+            room: cleanRoom,
+            wipedBy: username || 'Incognito',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+        console.log(`💥 [Session Vault Wiped] Cleaned all trace for room #${cleanRoom} by @${username}`);
+        if (typeof callback === 'function') callback({ success: true });
+    });
+
+    // 21. Disconnect
     socket.on('disconnect', () => {
         globalOnlineUsers.delete(socket.id);
         broadcastOnlineUsers();

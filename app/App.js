@@ -889,6 +889,16 @@ export default function App() {
   const [userAvatarGlow, setUserAvatarGlow] = useState('GOLD_HALO'); // 'GOLD_HALO' | 'DIAMOND_CYBER' | 'FLAME_AURA' | 'MATRIX_NEON' | 'COSMIC_VIOLET' | 'NONE'
   const [showVipStudioModal, setShowVipStudioModal] = useState(false);
 
+  // 🥷 Phase 9: Stealth Pro (Enterprise Privacy Suite)
+  const [stealthProSettings, setStealthProSettings] = useState({
+    enabled: false,
+    spoofPresence: 'REAL', // 'REAL' | 'ALWAYS_OFFLINE' | 'BUSY_FLIGHT'
+    perChatStealth: [], // array of room IDs
+    zeroTraceRead: false,
+    autoWipeOnExit: false
+  });
+  const [showStealthProModal, setShowStealthProModal] = useState(false);
+
   const getGlowRingStyle = (glowType) => {
     switch (glowType) {
       case 'GOLD_HALO':
@@ -1262,6 +1272,13 @@ export default function App() {
         if (savedGlow) setUserAvatarGlow(savedGlow);
         const savedVipBadge = await Storage.getItem('@gupshupp_vip_badge');
         if (savedVipBadge) setUserVipBadge(savedVipBadge);
+        const savedStealthPro = await Storage.getItem('@gupshupp_stealth_pro');
+        if (savedStealthPro) {
+          try {
+            const parsed = JSON.parse(savedStealthPro);
+            setStealthProSettings(parsed);
+          } catch (e) {}
+        }
 
         if (savedAvatar) setUserAvatar(savedAvatar);
         if (savedStatus) setUserStatus(savedStatus);
@@ -1422,10 +1439,28 @@ export default function App() {
         });
       }
 
-      // 👁️ Real-Time Two-Phone Read Receipt: Auto-mark as read if actively viewing this chat room
+      // 👁️ Real-Time Two-Phone Read Receipt: Auto-mark as read if actively viewing this chat room (Respects Zero-Trace Stealth Pro)
       if (data && data.room && data.sender !== currentUser) {
-        socket.emit('mark_as_read', { room: data.room, username: currentUser, isStealth: ghostMode });
+        const isCurrentRoomStealth = stealthProSettings.enabled && (stealthProSettings.zeroTraceRead || stealthProSettings.perChatStealth.includes(data.room));
+        if (!isCurrentRoomStealth && !ghostMode) {
+          socket.emit('mark_as_read', { room: data.room, username: currentUser, isStealth: false, isZeroTrace: false });
+        }
       }
+    });
+
+    socket.on('chat_session_wiped', ({ room, wipedBy, time }) => {
+      if (room === activeRoom) {
+        setMessages([{
+          _id: `wiped_${Date.now()}`,
+          room,
+          sender: '🥷 Stealth Vault',
+          text: `💥 This chat session was permanently wiped with zero traces by @${wipedBy} at ${time}.`,
+          type: 'text',
+          isSystem: true,
+          time
+        }]);
+      }
+      setRecentChats((prev) => prev.filter(c => c.id !== room));
     });
 
     socket.on('streak_updated', ({ room, streak, hoursRemaining, isHourglass, isFrozen }) => {
@@ -2005,6 +2040,9 @@ export default function App() {
 
     // 2. If inside CHAT screen, smoothly transition back to HOME
     if (screen === 'CHAT') {
+      if (stealthProSettings.enabled && stealthProSettings.autoWipeOnExit && activeRoom) {
+        socket.emit('wipe_chat_session', { room: activeRoom, username: currentUser });
+      }
       socket.emit('leave_room', { room: activeRoom, username: currentUser });
       setScreen('HOME');
       return true;
@@ -3768,6 +3806,23 @@ export default function App() {
                   </View>
                 </View>
 
+                {/* 🥷 Stealth Pro Suite Trigger Box */}
+                <TouchableOpacity 
+                  style={[styles.privacyBox, { backgroundColor: 'rgba(0,240,255,0.1)', borderColor: '#00f0ff', marginBottom: 12 }]}
+                  onPress={() => {
+                    setActiveSettingsCategory(null);
+                    setShowStealthProModal(true);
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.privacyTitle, { color: '#00f0ff' }]}>🥷 Stealth Pro Suite (अल्टीमेट प्राइवेसी)</Text>
+                    </View>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>Per-Chat Ghosting, Presence Spoofer, Zero-Trace Reads</Text>
+                  </View>
+                  <Text style={{ color: '#00f0ff', fontWeight: '900', fontSize: 14 }}>Open ➔</Text>
+                </TouchableOpacity>
+
                 {/* AI Auto-Responder Toggle */}
                 <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
                   <View style={{ flex: 1 }}>
@@ -4175,6 +4230,171 @@ export default function App() {
                   onPress={() => setShowVipStudioModal(false)}
                 >
                   <Text style={[styles.primaryBtnText, { color: '#000000', fontWeight: '900' }]}>✨ Done / प्रोफाइल अपडेट करें</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* 🥷 Modal: Stealth Pro Privacy Suite */}
+        <Modal visible={showStealthProModal} transparent animationType="slide" onRequestClose={() => setShowStealthProModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: '#00f0ff', borderWidth: 1.5, width: '92%', maxWidth: 480, maxHeight: '88%' }]}>
+              
+              {/* Stealth Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 24 }}>🥷</Text>
+                  <View>
+                    <Text style={[styles.modalTitle, { color: '#00f0ff', fontSize: 18, marginBottom: 0 }]}>Stealth Pro Suite</Text>
+                    <Text style={{ fontSize: 11, color: theme.textMuted }}>Enterprise Per-Chat Privacy & Presence Spoofer</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => setShowStealthProModal(false)}>
+                  <Text style={{ fontSize: 18, color: theme.textMuted, fontWeight: '900' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Master Stealth Toggle */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: stealthProSettings.enabled ? '#00f0ff' : theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>🥷 Stealth Pro Master Switch</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>Activate granular per-chat stealth & zero-trace reading</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.toggleSwitch, { backgroundColor: stealthProSettings.enabled ? '#00f0ff' : theme.border }]} 
+                    onPress={async () => {
+                      const next = { ...stealthProSettings, enabled: !stealthProSettings.enabled };
+                      setStealthProSettings(next);
+                      await Storage.setItem('@gupshupp_stealth_pro', JSON.stringify(next));
+                      socket.emit('update_stealth_pro', { username: currentUser, settings: next });
+                    }}
+                  >
+                    <Text style={[styles.toggleSwitchText, { color: stealthProSettings.enabled ? '#000000' : '#ffffff' }]}>{stealthProSettings.enabled ? 'ON' : 'OFF'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Section 1: 🕵️ Per-Chat Ghosting (Current Chat Override) */}
+                <Text style={[styles.vipSectionTitle, { color: theme.text, marginTop: 12 }]}>1. 🕵️ Per-Chat Stealth (इस चैट के लिए घोस्ट मोड)</Text>
+                {activeRoom ? (
+                  <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.privacyTitle, { color: theme.text }]}>Active Chat: {activeRoom.replace('dm_', '@')}</Text>
+                      <Text style={[styles.privacySub, { color: theme.textMuted }]}>Hide typing & online presence only for this contact</Text>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.toggleSwitch, { backgroundColor: stealthProSettings.perChatStealth.includes(activeRoom) ? '#00f0ff' : theme.border }]} 
+                      onPress={async () => {
+                        const exists = stealthProSettings.perChatStealth.includes(activeRoom);
+                        const nextRooms = exists 
+                          ? stealthProSettings.perChatStealth.filter(r => r !== activeRoom) 
+                          : [...stealthProSettings.perChatStealth, activeRoom];
+                        const next = { ...stealthProSettings, perChatStealth: nextRooms, enabled: true };
+                        setStealthProSettings(next);
+                        await Storage.setItem('@gupshupp_stealth_pro', JSON.stringify(next));
+                        socket.emit('update_stealth_pro', { username: currentUser, settings: next });
+                      }}
+                    >
+                      <Text style={[styles.toggleSwitchText, { color: stealthProSettings.perChatStealth.includes(activeRoom) ? '#000000' : '#ffffff' }]}>
+                        {stealthProSettings.perChatStealth.includes(activeRoom) ? 'ON' : 'OFF'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 12 }}>Open a direct chat to toggle per-chat stealth overrides.</Text>
+                )}
+
+                {/* Section 2: 🎭 Fake Presence Spoofer */}
+                <Text style={[styles.vipSectionTitle, { color: theme.text, marginTop: 12 }]}>2. 🎭 Presence Spoofer (फेक ऑनलाइन स्टेटस)</Text>
+                <View style={{ flexDirection: 'row', gap: 6, width: '100%', marginBottom: 12 }}>
+                  {[
+                    { id: 'REAL', label: '🟢 Real', sub: 'असली स्टेटस' },
+                    { id: 'ALWAYS_OFFLINE', label: '⚪ Offline', sub: 'हमेशा ऑफलाइन' },
+                    { id: 'BUSY_FLIGHT', label: '✈️ In Flight', sub: 'फ्लाइट मोड' }
+                  ].map((mode) => (
+                    <TouchableOpacity
+                      key={mode.id}
+                      style={[
+                        styles.bubbleShapeBtn,
+                        { 
+                          flex: 1, 
+                          backgroundColor: stealthProSettings.spoofPresence === mode.id ? 'rgba(0,240,255,0.15)' : theme.card, 
+                          borderColor: stealthProSettings.spoofPresence === mode.id ? '#00f0ff' : theme.border,
+                          paddingVertical: 8
+                        }
+                      ]}
+                      onPress={async () => {
+                        const next = { ...stealthProSettings, spoofPresence: mode.id };
+                        setStealthProSettings(next);
+                        await Storage.setItem('@gupshupp_stealth_pro', JSON.stringify(next));
+                        socket.emit('update_stealth_pro', { username: currentUser, settings: next });
+                      }}
+                    >
+                      <Text style={[styles.bubbleShapeText, { color: stealthProSettings.spoofPresence === mode.id ? '#00f0ff' : theme.text, fontSize: 12, fontWeight: '800' }]}>{mode.label}</Text>
+                      <Text style={{ fontSize: 9, color: theme.textMuted, marginTop: 2, textAlign: 'center' }}>{mode.sub}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Section 3: 👁️ Zero-Trace Incognito Read Receipts */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>👁️ Zero-Trace Incognito Reader</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>Read messages silently without sending blue ticks or read timestamps</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.toggleSwitch, { backgroundColor: stealthProSettings.zeroTraceRead ? '#00f0ff' : theme.border }]} 
+                    onPress={async () => {
+                      const next = { ...stealthProSettings, zeroTraceRead: !stealthProSettings.zeroTraceRead };
+                      setStealthProSettings(next);
+                      await Storage.setItem('@gupshupp_stealth_pro', JSON.stringify(next));
+                      socket.emit('update_stealth_pro', { username: currentUser, settings: next });
+                    }}
+                  >
+                    <Text style={[styles.toggleSwitchText, { color: stealthProSettings.zeroTraceRead ? '#000000' : '#ffffff' }]}>{stealthProSettings.zeroTraceRead ? 'ON' : 'OFF'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Section 4: 💥 Self-Destruct Session Vault */}
+                <Text style={[styles.vipSectionTitle, { color: theme.text, marginTop: 12 }]}>4. 💥 Self-Destruct Session Vault (चैट वाइप)</Text>
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>Auto-Wipe on Exit</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>Automatically wipe chat from both phones when leaving</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.toggleSwitch, { backgroundColor: stealthProSettings.autoWipeOnExit ? '#ef4444' : theme.border }]} 
+                    onPress={async () => {
+                      const next = { ...stealthProSettings, autoWipeOnExit: !stealthProSettings.autoWipeOnExit };
+                      setStealthProSettings(next);
+                      await Storage.setItem('@gupshupp_stealth_pro', JSON.stringify(next));
+                      socket.emit('update_stealth_pro', { username: currentUser, settings: next });
+                    }}
+                  >
+                    <Text style={[styles.toggleSwitchText, { color: '#ffffff' }]}>{stealthProSettings.autoWipeOnExit ? 'ON' : 'OFF'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {activeRoom && (
+                  <TouchableOpacity 
+                    style={[styles.primaryBtn, { backgroundColor: '#ef4444', marginTop: 6, height: 42 }]} 
+                    onPress={() => {
+                      if (confirm('💥 क्या आप इस चैट के सारे संदेश दोनों तरफ से स्थायी रूप से मिटाना चाहते हैं?')) {
+                        socket.emit('wipe_chat_session', { room: activeRoom, username: currentUser });
+                        setShowStealthProModal(false);
+                      }
+                    }}
+                  >
+                    <Text style={[styles.primaryBtnText, { color: '#ffffff', fontWeight: '900' }]}>💥 Wipe Active Chat Session Now</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity 
+                  style={[styles.primaryBtn, { backgroundColor: '#00f0ff', marginTop: 14, height: 44 }]} 
+                  onPress={() => setShowStealthProModal(false)}
+                >
+                  <Text style={[styles.primaryBtnText, { color: '#000000', fontWeight: '900' }]}>✓ Done / सेटिंग्स सुरक्षित करें</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -5087,6 +5307,30 @@ export default function App() {
               >
                 <Text style={styles.dropdownMenuIcon}>⭐</Text>
                 <Text style={[styles.dropdownMenuText, { color: theme.text }]}>Starred Messages</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setShowChatOptionsMenu(false);
+                  setShowStealthProModal(true);
+                }}
+              >
+                <Text style={styles.dropdownMenuIcon}>🥷</Text>
+                <Text style={[styles.dropdownMenuText, { color: '#00f0ff', fontWeight: '800' }]}>Stealth Pro Controls</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setShowChatOptionsMenu(false);
+                  if (confirm('💥 क्या आप इस चैट के सारे संदेश दोनों तरफ से स्थायी रूप से मिटाना चाहते हैं?')) {
+                    socket.emit('wipe_chat_session', { room: activeRoom, username: currentUser });
+                  }
+                }}
+              >
+                <Text style={styles.dropdownMenuIcon}>💥</Text>
+                <Text style={[styles.dropdownMenuText, { color: '#ef4444', fontWeight: '800' }]}>Wipe Chat Session</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
