@@ -35,5 +35,61 @@
       "contextPrompt": "In a meeting"
     },
     "pinnedChats": []
+  },
+  "rahn8n": {
+    "username": "rahn8n",
+    "email": "rahn8n@gmail.com",
+    "password": "$2b$10$BW2NmDiThKTPBp1.FRoNdOM8F7b5E0Sv/XC5e9wusm5YCzGW.5krW",
+    "avatar": "🌟",
+    "status": "Available 🟢",
+    "pin": "",
+    "privacySettings": {
+      "ghostMode": false,
+      "stealthReadReceipts": false,
+      "silentTyping": false
+    },
+    "aiAutoResponder": {
+      "enabled": false,
+      "awayStatus": "In Meeting ☕",
+      "contextPrompt": "In a meeting"
+    },
+    "pinnedChats": []
+  },
+  "testuser_1786825201574": {
+    "username": "testuser_1786825201574",
+    "password": "$2b$10$2JzSyCRSb7OnYiB0coMByOZhjvAVLvMsEjVSOBPQE09zQWJZwZIdC",
+    "avatar": "🦁",
+    "status": "Available 🟢",
+    "pin": "",
+    "privacySettings": {
+      "ghostMode": false,
+      "stealthReadReceipts": false,
+      "silentTyping": false
+    },
+    "aiAutoResponder": {
+      "enabled": false,
+      "awayStatus": "In Meeting ☕",
+      "contextPrompt": "In a meeting, reply soon"
+    },
+    "pinnedChats": []
+  },
+  "rahul_178682520": {
+    "username": "rahul_178682520",
+    "email": "rahul_1786825201793@gmail.com",
+    "password": "$2b$10$glUd4DDQw3YsB6AW9D9NQ.3zXSi3eoiJG3nbtn/Er7KQiCE3lqZv6",
+    "avatar": "🌟",
+    "status": "Available 🟢",
+    "pin": "",
+    "privacySettings": {
+      "ghostMode": false,
+      "stealthReadReceipts": false,
+      "silentTyping": false
+    },
+    "aiAutoResponder": {
+      "enabled": false,
+      "awayStatus": "In Meeting ☕",
+      "contextPrompt": "In a meeting"
+    },
+    "pinnedChats": []
   }
 }

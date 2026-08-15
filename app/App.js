@@ -855,14 +855,61 @@ export default function App() {
   const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // 🎨 Phase 6: Neo-Gen Signature Appearance Studio State
-  const [activeThemeId, setActiveThemeId] = useState('CYBER'); // 'CYBER' | 'GOLD' | 'SUNSET' | 'MATRIX' | 'FROST'
-  const [bubbleGeometry, setBubbleGeometry] = useState('PILL'); // 'PILL' | 'SQUIRCLE' | 'ANGULAR'
+  // 🎨 Phase 6: Neo-Gen Signature Appearance Studio State (WhatsApp + Telegram Hybrid)
+  const [activeThemeId, setActiveThemeId] = useState('WHATSAPP'); // 'WHATSAPP' | 'TELEGRAM' | 'CYBER' | 'GOLD' | 'SUNSET' | 'MATRIX' | 'FROST'
+  const [bubbleGeometry, setBubbleGeometry] = useState('SQUIRCLE'); // 'PILL' | 'SQUIRCLE' | 'ANGULAR'
   const [fontSizeScale, setFontSizeScale] = useState('STANDARD'); // 'COMPACT' | 'STANDARD' | 'LARGE'
   const [customWallpaperUri, setCustomWallpaperUri] = useState(null);
   const [showAppearanceStudioModal, setShowAppearanceStudioModal] = useState(false);
+  const [showAttachmentMenuModal, setShowAttachmentMenuModal] = useState(false);
+  const [showChatOptionsMenu, setShowChatOptionsMenu] = useState(false);
+  const [pinnedChatMessage, setPinnedChatMessage] = useState(null);
 
   const THEME_PALETTES = {
+    WHATSAPP: {
+      id: 'WHATSAPP',
+      name: '🟢 WhatsApp Dark (Emerald)',
+      bg: '#0b141a',
+      surface: '#111b21',
+      card: '#202c33',
+      border: '#222e35',
+      text: '#e9edef',
+      textMuted: '#8696a0',
+      accent: '#00a884',
+      accentLight: '#25d366',
+      accentSecondary: '#128c7e',
+      bubbleMine: '#005c4b',
+      bubbleOther: '#202c33',
+      bubbleAi: '#083329',
+      aiBorder: '#00a884',
+      headerBg: '#111b21',
+      inputBg: '#202c33',
+      navBg: 'rgba(17, 27, 33, 0.98)',
+      glow: '#00a884',
+      tickBlue: '#53bdeb'
+    },
+    TELEGRAM: {
+      id: 'TELEGRAM',
+      name: '🔵 Telegram Azure (Sapphire)',
+      bg: '#0e1621',
+      surface: '#17212b',
+      card: '#242f3d',
+      border: '#2b3644',
+      text: '#f5f5f5',
+      textMuted: '#7f91a4',
+      accent: '#3390ec',
+      accentLight: '#50a2e9',
+      accentSecondary: '#2481cc',
+      bubbleMine: '#2b5278',
+      bubbleOther: '#182533',
+      bubbleAi: '#19334d',
+      aiBorder: '#3390ec',
+      headerBg: '#17212b',
+      inputBg: '#17212b',
+      navBg: 'rgba(23, 33, 43, 0.98)',
+      glow: '#3390ec',
+      tickBlue: '#50a2e9'
+    },
     CYBER: {
       id: 'CYBER',
       name: '⚡ Cyber Neon',
@@ -882,7 +929,8 @@ export default function App() {
       headerBg: '#0b1120',
       inputBg: '#0f172a',
       navBg: 'rgba(15, 23, 42, 0.95)',
-      glow: '#00f0ff'
+      glow: '#00f0ff',
+      tickBlue: '#38bdf8'
     },
     GOLD: {
       id: 'GOLD',
@@ -903,7 +951,8 @@ export default function App() {
       headerBg: '#121212',
       inputBg: '#141414',
       navBg: 'rgba(20, 20, 20, 0.95)',
-      glow: '#f59e0b'
+      glow: '#f59e0b',
+      tickBlue: '#fbbf24'
     },
     SUNSET: {
       id: 'SUNSET',
@@ -924,7 +973,8 @@ export default function App() {
       headerBg: '#170924',
       inputBg: '#1c0d29',
       navBg: 'rgba(28, 13, 41, 0.95)',
-      glow: '#f43f5e'
+      glow: '#f43f5e',
+      tickBlue: '#fb7185'
     },
     MATRIX: {
       id: 'MATRIX',
@@ -945,32 +995,34 @@ export default function App() {
       headerBg: '#051b10',
       inputBg: '#072014',
       navBg: 'rgba(7, 32, 20, 0.95)',
-      glow: '#10b981'
+      glow: '#10b981',
+      tickBlue: '#34d399'
     },
     FROST: {
       id: 'FROST',
-      name: '💎 Frost Sapphire',
-      bg: '#f1f5f9',
+      name: '💎 Frost Sapphire Light',
+      bg: '#efeae2',
       surface: '#ffffff',
-      card: '#e2e8f0',
-      border: '#cbd5e1',
-      text: '#0f172a',
-      textMuted: '#64748b',
-      accent: '#2563eb',
-      accentLight: '#3b82f6',
-      accentSecondary: '#60a5fa',
-      bubbleMine: '#2563eb',
+      card: '#f0f2f5',
+      border: '#e9edef',
+      text: '#111b21',
+      textMuted: '#667781',
+      accent: '#008069',
+      accentLight: '#00a884',
+      accentSecondary: '#128c7e',
+      bubbleMine: '#d9fdd3',
       bubbleOther: '#ffffff',
-      bubbleAi: '#eff6ff',
-      aiBorder: '#2563eb',
-      headerBg: '#ffffff',
-      inputBg: '#e2e8f0',
-      navBg: 'rgba(255, 255, 255, 0.95)',
-      glow: '#2563eb'
+      bubbleAi: '#e7f8f5',
+      aiBorder: '#00a884',
+      headerBg: '#008069',
+      inputBg: '#ffffff',
+      navBg: 'rgba(255, 255, 255, 0.98)',
+      glow: '#008069',
+      tickBlue: '#53bdeb'
     }
   };
 
-  const theme = THEME_PALETTES[activeThemeId] || THEME_PALETTES.CYBER;
+  const theme = THEME_PALETTES[activeThemeId] || THEME_PALETTES.WHATSAPP;
 
   const getBubbleRadius = () => {
     if (bubbleGeometry === 'PILL') return 22;
@@ -2479,27 +2531,73 @@ export default function App() {
       <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
         <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.headerBg} />
         
-        {/* Main Header with Ghost Mode Badge */}
+        {/* 🌟 WhatsApp + Telegram Hybrid Signature Header */}
         <View style={[styles.homeHeader, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.headerAvatarEmoji}>{userAvatar}</Text>
-            <View style={{ marginLeft: 8 }}>
+            <TouchableOpacity onPress={() => setBottomNav('PROFILE')} style={{ position: 'relative' }}>
+              <View style={[styles.headerAvatarRing, { borderColor: theme.accent }]}>
+                <Text style={styles.headerAvatarEmoji}>{userAvatar}</Text>
+              </View>
+              <View style={[styles.headerOnlineDot, { backgroundColor: ghostMode ? '#a855f7' : '#22c55e' }]} />
+            </TouchableOpacity>
+            <View style={{ marginLeft: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={[styles.headerLogo, { color: theme.accentLight }]}>GupShupp</Text>
                 {ghostMode && <Text style={styles.ghostBadge}>👻 GHOST</Text>}
               </View>
-              <Text style={[styles.welcomeUser, { color: theme.textMuted }]}>@{currentUser} • <Text style={{ color: theme.accentLight }}>{userStatus}</Text></Text>
+              <Text style={[styles.welcomeUser, { color: theme.textMuted }]}>
+                @{currentUser} • <Text style={{ color: theme.accentLight }}>{userStatus}</Text>
+              </Text>
             </View>
           </View>
+
           <View style={styles.headerActionRow}>
-            <TouchableOpacity style={[styles.iconCircleBtn, { backgroundColor: theme.border }]} onPress={handleToggleGhostMode}>
-              <Text style={styles.iconCircleText}>{ghostMode ? '👻' : '👁️'}</Text>
+            <TouchableOpacity 
+              style={[styles.iconCircleBtn, { backgroundColor: isSearchActive ? theme.accent : theme.card }]} 
+              onPress={() => setIsSearchActive(!isSearchActive)}
+            >
+              <Text style={[styles.iconCircleText, { color: isSearchActive ? '#000000' : theme.text }]}>🔍</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.iconCircleBtn, { backgroundColor: theme.border }]} onPress={toggleTheme}>
+            <TouchableOpacity 
+              style={[styles.iconCircleBtn, { backgroundColor: theme.card }]} 
+              onPress={() => setShowLanguageModal(true)}
+            >
+              <Text style={styles.iconCircleText}>🌐</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.iconCircleBtn, { backgroundColor: theme.card }]} 
+              onPress={toggleTheme}
+            >
               <Text style={styles.iconCircleText}>{isDarkMode ? '☀️' : '🌙'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.iconCircleBtn, { backgroundColor: theme.card }]} 
+              onPress={() => setShowAppearanceStudioModal(true)}
+            >
+              <Text style={styles.iconCircleText}>🎨</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* 🔍 In-App Instant Search Bar */}
+        {isSearchActive && (
+          <View style={[styles.searchBarContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+            <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
+            <TextInput
+              style={[styles.searchBarInput, { backgroundColor: theme.inputBg, color: theme.text, flex: 1 }]}
+              placeholder={t('search_placeholder')}
+              placeholderTextColor={theme.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 16 }}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
 
         {/* 🌐 Real-Time Ambient Connection Status Banner */}
         {!isConnected && (
@@ -2518,18 +2616,18 @@ export default function App() {
           </View>
         )}
 
-        {/* 🎬 24h Ephemeral Stories / Status Tray */}
+        {/* 🎬 24h Ephemeral Stories / Status Tray (WhatsApp Style) */}
         <View style={[styles.storiesContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
             {/* Add Story Circle */}
             <TouchableOpacity style={styles.storyCircleBox} onPress={() => setShowCreateStoryModal(true)}>
-              <View style={[styles.addStoryRing, { borderColor: theme.accentLight }]}>
+              <View style={[styles.addStoryRing, { borderColor: theme.accentLight, backgroundColor: theme.card }]}>
                 <Text style={styles.storyAvatarEmoji}>{userAvatar}</Text>
-                <View style={[styles.addStoryPlusBadge, { backgroundColor: theme.accentLight }]}>
+                <View style={[styles.addStoryPlusBadge, { backgroundColor: theme.accent }]}>
                   <Text style={styles.addStoryPlusText}>+</Text>
                 </View>
               </View>
-              <Text style={[styles.storyUserName, { color: theme.text }]} numberOfLines={1}>Your Story</Text>
+              <Text style={[styles.storyUserName, { color: theme.text, fontWeight: '700' }]} numberOfLines={1}>Your Status</Text>
             </TouchableOpacity>
 
             {/* Friends Stories */}
@@ -2542,7 +2640,7 @@ export default function App() {
                   setActiveStoryModal(st);
                 }}
               >
-                <View style={[styles.storyRing, { borderColor: theme.accentLight }]}>
+                <View style={[styles.storyRing, { borderColor: theme.accentLight, backgroundColor: theme.card }]}>
                   <Text style={styles.storyAvatarEmoji}>{st.avatar}</Text>
                 </View>
                 <Text style={[styles.storyUserName, { color: theme.text }]} numberOfLines={1}>@{st.username}</Text>
@@ -2551,20 +2649,33 @@ export default function App() {
           </ScrollView>
         </View>
 
-        {/* 🗂️ Smart Chat Folders Bar */}
-        <View style={[styles.folderTabsBar, { backgroundColor: theme.surface }]}>
+        {/* 🗂️ Telegram-Style Fluid Folder Tabs Bar */}
+        <View style={[styles.folderTabsBar, { backgroundColor: theme.headerBg, borderBottomColor: theme.border, borderBottomWidth: 1 }]}>
           {[
-            { id: 'ALL', label: 'All' },
-            { id: 'UNREAD', label: 'Unread 🔴' },
-            { id: 'DM', label: '1-on-1 💬' },
-            { id: 'GROUPS', label: 'Groups 👥' }
+            { id: 'ALL', label: 'All', icon: '💬' },
+            { id: 'UNREAD', label: 'Unread', icon: '🔴' },
+            { id: 'DM', label: 'Personal', icon: '👤' },
+            { id: 'GROUPS', label: 'Groups', icon: '👥' },
+            { id: 'GPAI', label: 'GP AI 🤖', icon: '⚡' }
           ].map((f) => (
             <TouchableOpacity 
               key={f.id} 
-              style={[styles.folderTabItem, chatFolder === f.id && { backgroundColor: theme.accent }]}
-              onPress={() => setChatFolder(f.id)}
+              style={[
+                styles.folderTabItem, 
+                chatFolder === f.id ? { backgroundColor: theme.accent, borderColor: theme.accentLight } : { backgroundColor: 'transparent' }
+              ]}
+              onPress={() => {
+                if (f.id === 'GPAI') {
+                  startDirectChat('gp_ai_bot');
+                } else {
+                  setChatFolder(f.id);
+                }
+              }}
             >
-              <Text style={[styles.folderTabLabel, chatFolder === f.id ? { color: '#ffffff', fontWeight: '800' } : { color: theme.textMuted }]}>
+              <Text style={[
+                styles.folderTabLabel, 
+                chatFolder === f.id ? { color: '#000000', fontWeight: '900' } : { color: theme.textMuted }
+              ]}>
                 {f.label}
               </Text>
             </TouchableOpacity>
@@ -2575,10 +2686,7 @@ export default function App() {
         <ScrollView style={styles.homeContent}>
           {bottomNav === 'CHATS' && (
             <View style={styles.tabContentContainer}>
-              {/* Recent Conversations List */}
-              <Text style={[styles.sectionHeading, { color: theme.text }]}>💬 चैट्स (Conversations)</Text>
-
-              {/* ☁️ Phase 5: Telegram Saved Messages (Personal Cloud) */}
+              {/* ☁️ Telegram-Style Saved Messages / Personal Cloud Vault */}
               <TouchableOpacity 
                 activeOpacity={0.85}
                 style={[styles.savedMessagesRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
@@ -3257,7 +3365,7 @@ export default function App() {
         style={{ flex: 1 }}
       >
         
-        {/* Chat Header */}
+        {/* 🌟 WhatsApp + Telegram Hybrid Chat Header */}
         <View style={[styles.chatHeader, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
           <TouchableOpacity 
             style={[styles.backBtn, { backgroundColor: 'rgba(255,255,255,0.06)' }]} 
@@ -3266,31 +3374,28 @@ export default function App() {
           >
             <Text style={[styles.backBtnText, { color: theme.accent }]}>←</Text>
           </TouchableOpacity>
-          <View style={styles.chatTitleBlock}>
-            <Text style={[styles.chatTitleText, { color: theme.text }]}>{chatTitle}</Text>
-            <View style={styles.chatSubTitleRow}>
-              <Text style={[styles.chatSubTitleText, { color: theme.textMuted }]}>
-                {isDirectChat ? (ghostMode ? '👻 Incognito' : '🔒 E2EE Direct') : `👥 ${activeMembersCount} in Room`}
-              </Text>
-              {disappearingTtl > 0 && <Text style={styles.disappearingBadge}> ⏱️ {disappearingTtl === 3600000 ? '1h' : '24h'}</Text>}
-            </View>
-          </View>
 
-          {/* Action Icons in Header */}
+          <TouchableOpacity 
+            style={[styles.chatTitleBlock, { flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 6 }]}
+            onPress={() => isDirectChat ? setShowSharedMediaVault(true) : setShowGroupAdminModal(true)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.chatHeaderAvatarBox, { backgroundColor: theme.card, borderColor: theme.accent }]}>
+              <Text style={{ fontSize: 18 }}>{isDirectChat ? '👤' : '👥'}</Text>
+            </View>
+            <View style={{ marginLeft: 8, flex: 1 }}>
+              <Text style={[styles.chatTitleText, { color: theme.text }]} numberOfLines={1}>{chatTitle}</Text>
+              <View style={styles.chatSubTitleRow}>
+                <Text style={[styles.chatSubTitleText, { color: theme.accentLight }]}>
+                  {typingUser ? `${typingUser} typing... ✍️` : (isDirectChat ? (ghostMode ? '👻 Incognito' : 'Online 🟢') : `👥 ${activeMembersCount} members`)}
+                </Text>
+                {disappearingTtl > 0 && <Text style={styles.disappearingBadge}> ⏱️ {disappearingTtl === 3600000 ? '1h' : '24h'}</Text>}
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Action Icons in Header (WhatsApp Style) */}
           <View style={styles.chatHeaderActions}>
-            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setIsSearchActive(!isSearchActive)}>
-              <Text style={styles.headerIconText}>🔍</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIconBtn} onPress={() => {
-              setIsGeneratingSummary(true);
-              const cleanList = messages.slice(-25).map(m => ({ sender: m.sender, text: decryptText(m.text) }));
-              socket.emit('ai_summarize_request', { messages: cleanList }, (res) => {
-                setIsGeneratingSummary(false);
-                if (res?.success) setAiSummaryModal(res.summary);
-              });
-            }}>
-              <Text style={styles.headerIconText}>📝</Text>
-            </TouchableOpacity>
             {isDirectChat && (
               <>
                 <TouchableOpacity style={styles.headerIconBtn} onPress={() => initiateCall(false)}>
@@ -3301,17 +3406,28 @@ export default function App() {
                 </TouchableOpacity>
               </>
             )}
-            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowSharedMediaVault(true)}>
-              <Text style={styles.headerIconText}>📂</Text>
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setIsSearchActive(!isSearchActive)}>
+              <Text style={styles.headerIconText}>🔍</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowWallpaperModal(true)}>
-              <Text style={styles.headerIconText}>🎨</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowDisappearingModal(true)}>
-              <Text style={styles.headerIconText}>⏱️</Text>
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => setShowChatOptionsMenu(true)}>
+              <Text style={styles.headerIconText}>⋮</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* 📌 Telegram-Style Pinned Message Sticky Banner */}
+        {pinnedChatMessage && (
+          <View style={[styles.pinnedBannerRow, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+            <Text style={{ fontSize: 14, marginRight: 6 }}>📌</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.pinnedBannerTitle, { color: theme.accentLight }]}>Pinned Message</Text>
+              <Text style={[styles.pinnedBannerSnippet, { color: theme.text }]} numberOfLines={1}>{decryptText(pinnedChatMessage.text)}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setPinnedChatMessage(null)} style={{ padding: 4 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 14 }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 🌐 Real-Time Ambient Connection Status Banner */}
         {!isConnected && (
@@ -3433,13 +3549,13 @@ export default function App() {
                   const translatedText = translatedMessages[item._id];
                   const transcribedText = transcribedAudioMap[item._id];
 
-                  // AI Assistant Message Bubble
+                  // AI Assistant Message Bubble (GP AI Squad)
                   if (isAiSender) {
                     return (
                       <View style={[styles.aiBubbleWrapper, { backgroundColor: theme.bubbleAi, borderColor: theme.aiBorder, borderRadius: getBubbleRadius() }]}>
                         <View style={styles.aiHeader}>
                           <Text style={styles.aiRobotEmoji}>🤖</Text>
-                          <Text style={styles.aiTitle}>GupShupp AI (Gemini 2.5)</Text>
+                          <Text style={styles.aiTitle}>GP AI (Llama 3.3 70B & Gemini)</Text>
                         </View>
                         <Text style={[styles.aiMessageText, { color: theme.text, fontSize: getFontSize() }]}>{decryptedText}</Text>
                         <Text style={styles.aiTimestamp}>{item.time}</Text>
@@ -3455,7 +3571,7 @@ export default function App() {
                     >
                       <View style={[
                         styles.bubble, 
-                        isMine ? { backgroundColor: theme.bubbleMine } : { backgroundColor: theme.bubbleOther },
+                        isMine ? [styles.bubbleMineStyle, { backgroundColor: theme.bubbleMine }] : [styles.bubbleOtherStyle, { backgroundColor: theme.bubbleOther }],
                         { borderRadius: getBubbleRadius() }
                       ]}>
                         {!isMine && (
@@ -3472,7 +3588,7 @@ export default function App() {
 
                         {/* Quoted Reply Context */}
                         {item.replyTo && (
-                          <View style={[styles.quotedReplyBox, { borderLeftColor: theme.accentLight }]}>
+                          <View style={[styles.quotedReplyBox, { borderLeftColor: theme.accentLight, backgroundColor: 'rgba(0,0,0,0.18)' }]}>
                             <Text style={styles.quotedReplySender}>@{item.replyTo.sender}</Text>
                             <Text style={styles.quotedReplyText} numberOfLines={1}>{item.replyTo.text}</Text>
                           </View>
@@ -3530,7 +3646,7 @@ export default function App() {
                           )
                         )}
 
-                        {/* Voice Note Message with Speed & Transcription */}
+                        {/* Voice Note Message with Speed & Transcription (WhatsApp Style) */}
                         {item.type === 'audio' && (
                           <View style={{ marginVertical: 4 }}>
                             <View style={styles.voiceNoteBox}>
@@ -3592,7 +3708,7 @@ export default function App() {
 
                         {/* Text Message */}
                         {item.type === 'text' && decryptedText ? (
-                          <Text style={[styles.messageText, { color: isMine && activeThemeId === 'FROST' ? '#ffffff' : theme.text, fontSize: getFontSize() }]}>
+                          <Text style={[styles.messageText, { color: isMine && activeThemeId === 'FROST' ? '#000000' : theme.text, fontSize: getFontSize() }]}>
                             {decryptedText}
                           </Text>
                         ) : null}
@@ -3615,13 +3731,22 @@ export default function App() {
                       </TouchableOpacity>
                     )}
 
-                    {/* Meta Row: Lock + Star + Time + Double Ticks */}
+                    {/* Meta Row: Lock + Star + Time + WhatsApp Double Blue Ticks */}
                     <View style={styles.metaRow}>
                       {isStarred && <Text style={styles.starIcon}>⭐</Text>}
                       <Text style={[styles.lockIcon, { color: theme.textMuted }]}>🔒</Text>
                       <Text style={[styles.timestamp, { color: theme.textMuted }]}>{item.time}</Text>
                       {isMine && (
-                        <Text style={[styles.tickIcon, item.status === 'failed' ? { color: '#ef4444', fontSize: 11 } : (item.status === 'sending' ? { color: '#fbbf24', fontSize: 10 } : (item.status === 'read' ? { color: '#38bdf8' } : { color: theme.textMuted }))]}>
+                        <Text style={[
+                          styles.tickIcon, 
+                          item.status === 'failed' 
+                            ? { color: '#ef4444', fontSize: 11 } 
+                            : (item.status === 'sending' 
+                                ? { color: '#fbbf24', fontSize: 10 } 
+                                : (item.status === 'read' 
+                                    ? { color: theme.tickBlue || '#53bdeb' } 
+                                    : { color: theme.textMuted }))
+                        ]}>
                           {item.status === 'failed' ? '❌' : (item.status === 'sending' ? '🕒' : (item.status === 'read' ? '✓✓' : (item.status === 'delivered' ? '✓✓' : '✓')))}
                         </Text>
                       )}
@@ -3682,8 +3807,8 @@ export default function App() {
           </View>
         )}
 
-        {/* Multi-Agent AI Squad Selector Bar */}
-        <View style={[styles.aiBotSquadBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+        {/* 🤖 Multi-Agent GP AI Squad Selector Bar */}
+        <View style={[styles.aiBotSquadBar, { backgroundColor: theme.headerBg, borderTopColor: theme.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 4 }}>
             {[
               { tag: '@gp', label: '🤖 @gp (GP AI)' },
@@ -3710,7 +3835,7 @@ export default function App() {
           </View>
         )}
 
-        {/* Input Bar */}
+        {/* 💬 WhatsApp-Style Modern Input Bar */}
         {isRecordingAudio ? (
           <View style={[styles.recordingBar, { backgroundColor: '#ef4444' }]}>
             <Text style={styles.recordingText}>🔴 रिकॉर्ड हो रहा है: {recordingSeconds}s</Text>
@@ -3722,35 +3847,14 @@ export default function App() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={[styles.inputBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-            <TouchableOpacity style={styles.attachBtn} onPress={pickAndSendImage}>
-              <Text style={styles.attachIcon}>📷</Text>
-            </TouchableOpacity>
+          <View style={[styles.inputBar, { backgroundColor: theme.headerBg, borderTopColor: theme.border }]}>
             <TouchableOpacity 
-              style={[styles.hdToggleChip, { backgroundColor: isHdMediaMode ? theme.accentLight : theme.card, borderColor: theme.border }]} 
-              onPress={() => setIsHdMediaMode(!isHdMediaMode)}
+              style={styles.attachBtn} 
+              onPress={() => setShowAttachmentMenuModal(true)}
             >
-              <Text style={[styles.hdToggleText, { color: isHdMediaMode ? '#000000' : theme.textMuted }]}>
-                {isHdMediaMode ? '💎 HD' : 'SD'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.hdToggleChip, { backgroundColor: isOneTimeMediaMode ? '#ef4444' : theme.card, borderColor: theme.border }]} 
-              onPress={() => setIsOneTimeMediaMode(!isOneTimeMediaMode)}
-            >
-              <Text style={[styles.hdToggleText, { color: isOneTimeMediaMode ? '#ffffff' : theme.textMuted }]}>
-                {isOneTimeMediaMode ? '🔥 1-Time' : '🔥'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.attachBtn} onPress={pickAndSendDocument}>
               <Text style={styles.attachIcon}>📎</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.attachBtn} onPress={() => setShowCreatePollModal(true)}>
-              <Text style={styles.attachIcon}>📊</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.attachBtn} onPress={() => setShowMiniAppModal(true)}>
-              <Text style={styles.attachIcon}>🎮</Text>
-            </TouchableOpacity>
+
             <TextInput
               style={[styles.chatInput, { backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }]}
               placeholder={roomAdminSettings.adminOnlyPost && !roomAdminSettings.admins?.includes(currentUser) ? t('admin_only_badge') : (slowModeCooldown > 0 ? `Wait (${slowModeCooldown}s)...` : t('type_message_placeholder'))}
@@ -3772,22 +3876,207 @@ export default function App() {
               }}
               multiline
             />
+
             {message.trim() ? (
               <TouchableOpacity 
-                style={[styles.sendBtn, { backgroundColor: slowModeCooldown > 0 ? '#64748b' : theme.accentLight }]} 
+                style={[styles.sendBtn, { backgroundColor: slowModeCooldown > 0 ? '#64748b' : theme.accent }]} 
                 onPress={() => sendMessage('text')}
                 onLongPress={() => setShowSendOptionsModal(true)}
                 disabled={slowModeCooldown > 0}
               >
-                <Text style={styles.sendBtnText}>{slowModeCooldown > 0 ? `${slowModeCooldown}s` : '➤'}</Text>
+                <Text style={[styles.sendBtnText, { color: '#000000' }]}>{slowModeCooldown > 0 ? `${slowModeCooldown}s` : '➤'}</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={[styles.micBtn, { backgroundColor: theme.accent }]} onPress={startAudioRecording}>
+              <TouchableOpacity 
+                style={[styles.micBtn, { backgroundColor: theme.accent }]} 
+                onPress={startAudioRecording}
+              >
                 <Text style={styles.micIcon}>🎙️</Text>
               </TouchableOpacity>
             )}
           </View>
         )}
+
+        {/* 📎 WhatsApp-Style Attachment Menu Grid Modal */}
+        <Modal 
+          visible={showAttachmentMenuModal} 
+          transparent 
+          animationType="fade"
+          onRequestClose={() => setShowAttachmentMenuModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setShowAttachmentMenuModal(false)}
+          >
+            <View style={[styles.attachmentMenuSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.attachmentMenuTitle, { color: theme.text }]}>शेयर करें (Share Media & Tools)</Text>
+              <View style={styles.attachmentGrid}>
+                {/* 1. Camera */}
+                <TouchableOpacity 
+                  style={styles.attachmentGridItem}
+                  onPress={() => {
+                    setShowAttachmentMenuModal(false);
+                    pickAndSendImage();
+                  }}
+                >
+                  <View style={[styles.attachmentCircleIcon, { backgroundColor: '#ea4335' }]}>
+                    <Text style={{ fontSize: 24 }}>📷</Text>
+                  </View>
+                  <Text style={[styles.attachmentItemLabel, { color: theme.text }]}>Camera</Text>
+                </TouchableOpacity>
+
+                {/* 2. Gallery / HD Media */}
+                <TouchableOpacity 
+                  style={styles.attachmentGridItem}
+                  onPress={() => {
+                    setShowAttachmentMenuModal(false);
+                    setIsHdMediaMode(true);
+                    pickAndSendImage();
+                  }}
+                >
+                  <View style={[styles.attachmentCircleIcon, { backgroundColor: '#9333ea' }]}>
+                    <Text style={{ fontSize: 24 }}>🖼️</Text>
+                  </View>
+                  <Text style={[styles.attachmentItemLabel, { color: theme.text }]}>Gallery HD</Text>
+                </TouchableOpacity>
+
+                {/* 3. Document */}
+                <TouchableOpacity 
+                  style={styles.attachmentGridItem}
+                  onPress={() => {
+                    setShowAttachmentMenuModal(false);
+                    pickAndSendDocument();
+                  }}
+                >
+                  <View style={[styles.attachmentCircleIcon, { backgroundColor: '#2563eb' }]}>
+                    <Text style={{ fontSize: 24 }}>📄</Text>
+                  </View>
+                  <Text style={[styles.attachmentItemLabel, { color: theme.text }]}>Document</Text>
+                </TouchableOpacity>
+
+                {/* 4. Poll */}
+                <TouchableOpacity 
+                  style={styles.attachmentGridItem}
+                  onPress={() => {
+                    setShowAttachmentMenuModal(false);
+                    setShowCreatePollModal(true);
+                  }}
+                >
+                  <View style={[styles.attachmentCircleIcon, { backgroundColor: '#f59e0b' }]}>
+                    <Text style={{ fontSize: 24 }}>📊</Text>
+                  </View>
+                  <Text style={[styles.attachmentItemLabel, { color: theme.text }]}>Poll</Text>
+                </TouchableOpacity>
+
+                {/* 5. 1-Time Self Destruct Photo */}
+                <TouchableOpacity 
+                  style={styles.attachmentGridItem}
+                  onPress={() => {
+                    setShowAttachmentMenuModal(false);
+                    setIsOneTimeMediaMode(true);
+                    pickAndSendImage();
+                  }}
+                >
+                  <View style={[styles.attachmentCircleIcon, { backgroundColor: '#ef4444' }]}>
+                    <Text style={{ fontSize: 24 }}>🔥</Text>
+                  </View>
+                  <Text style={[styles.attachmentItemLabel, { color: theme.text }]}>1-Time View</Text>
+                </TouchableOpacity>
+
+                {/* 6. Mini-Apps & Games */}
+                <TouchableOpacity 
+                  style={styles.attachmentGridItem}
+                  onPress={() => {
+                    setShowAttachmentMenuModal(false);
+                    setShowMiniAppModal(true);
+                  }}
+                >
+                  <View style={[styles.attachmentCircleIcon, { backgroundColor: '#10b981' }]}>
+                    <Text style={{ fontSize: 24 }}>🎮</Text>
+                  </View>
+                  <Text style={[styles.attachmentItemLabel, { color: theme.text }]}>Mini Apps</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* ⋮ Chat Options Dropdown Modal */}
+        <Modal
+          visible={showChatOptionsMenu}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowChatOptionsMenu(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setShowChatOptionsMenu(false)}
+          >
+            <View style={[styles.chatOptionsDropdown, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <TouchableOpacity 
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setShowChatOptionsMenu(false);
+                  setIsGeneratingSummary(true);
+                  const cleanList = messages.slice(-25).map(m => ({ sender: m.sender, text: decryptText(m.text) }));
+                  socket.emit('ai_summarize_request', { messages: cleanList }, (res) => {
+                    setIsGeneratingSummary(false);
+                    if (res?.success) setAiSummaryModal(res.summary);
+                  });
+                }}
+              >
+                <Text style={styles.dropdownMenuIcon}>📝</Text>
+                <Text style={[styles.dropdownMenuText, { color: theme.text }]}>AI Summarize Chat</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setShowChatOptionsMenu(false);
+                  setShowDisappearingModal(true);
+                }}
+              >
+                <Text style={styles.dropdownMenuIcon}>⏱️</Text>
+                <Text style={[styles.dropdownMenuText, { color: theme.text }]}>Disappearing Messages</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setShowChatOptionsMenu(false);
+                  setShowSharedMediaVault(true);
+                }}
+              >
+                <Text style={styles.dropdownMenuIcon}>📂</Text>
+                <Text style={[styles.dropdownMenuText, { color: theme.text }]}>Media, Links & Docs</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setShowChatOptionsMenu(false);
+                  setShowWallpaperModal(true);
+                }}
+              >
+                <Text style={styles.dropdownMenuIcon}>🎨</Text>
+                <Text style={[styles.dropdownMenuText, { color: theme.text }]}>Chat Wallpaper</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setShowChatOptionsMenu(false);
+                  setShowStarredModal(true);
+                }}
+              >
+                <Text style={styles.dropdownMenuIcon}>⭐</Text>
+                <Text style={[styles.dropdownMenuText, { color: theme.text }]}>Starred Messages</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Modal: Dynamic Chat Wallpapers Studio */}
         <Modal visible={showWallpaperModal} transparent animationType="slide">
@@ -5130,5 +5419,25 @@ const styles = StyleSheet.create({
   chaosAlertTitle: { fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
   chaosAlertMsg: { fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 18 },
   chaosAlertBtn: { width: '100%', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  chaosAlertBtnText: { color: '#000000', fontSize: 14, fontWeight: '900' }
+  chaosAlertBtnText: { color: '#000000', fontSize: 14, fontWeight: '900' },
+
+  // 🌟 WhatsApp + Telegram Signature Hybrid Styles
+  headerAvatarRing: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+  headerOnlineDot: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#111b21' },
+  chatHeaderAvatarBox: { width: 38, height: 38, borderRadius: 19, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
+  pinnedBannerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 1 },
+  pinnedBannerTitle: { fontSize: 11, fontWeight: '800' },
+  pinnedBannerSnippet: { fontSize: 13 },
+  bubbleMineStyle: { alignSelf: 'flex-end', borderBottomRightRadius: 3 },
+  bubbleOtherStyle: { alignSelf: 'flex-start', borderBottomLeftRadius: 3 },
+  attachmentMenuSheet: { width: '92%', maxWidth: 400, borderRadius: 24, borderWidth: 1, padding: 20, elevation: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10 },
+  attachmentMenuTitle: { fontSize: 16, fontWeight: '900', marginBottom: 16, textAlign: 'center' },
+  attachmentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 16 },
+  attachmentGridItem: { width: '30%', alignItems: 'center' },
+  attachmentCircleIcon: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
+  attachmentItemLabel: { fontSize: 12, fontWeight: '700', marginTop: 6, textAlign: 'center' },
+  chatOptionsDropdown: { position: 'absolute', top: 55, right: 16, width: 220, borderRadius: 14, borderWidth: 1, padding: 8, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  dropdownMenuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
+  dropdownMenuIcon: { fontSize: 18, marginRight: 10 },
+  dropdownMenuText: { fontSize: 13, fontWeight: '700' }
 });
