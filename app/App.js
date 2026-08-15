@@ -875,9 +875,15 @@ export default function App() {
   const [pinnedChatMessage, setPinnedChatMessage] = useState(null);
   const [activeSettingsCategory, setActiveSettingsCategory] = useState(null); // 'ACCOUNT' | 'PRIVACY' | 'APPEARANCE' | 'STORAGE' | 'GPAI'
   
-  // ⚡ Phase 7: Snapchat-Style Snap Streaks & Screenshot Alerts
+  // ⚡ Phase 7: Snapchat-Style Two-Way Snap Streaks & Screenshot Shield
   const [activeRoomStreak, setActiveRoomStreak] = useState(0);
+  const [activeRoomHoursRemaining, setActiveRoomHoursRemaining] = useState(24);
+  const [activeRoomIsHourglass, setActiveRoomIsHourglass] = useState(false);
+  const [screenshotProtectionMode, setScreenshotProtectionMode] = useState('ALERT_ONLY'); // 'ALERT_ONLY' | 'HARD_BLOCK' | 'DISABLED'
+  const [isScreenObfuscated, setIsScreenObfuscated] = useState(false);
   const [screenshotAlertToast, setScreenshotAlertToast] = useState('');
+  const [floatingFlameMessageId, setFloatingFlameMessageId] = useState(null);
+  const lastMessageTapRef = useRef({});
 
   const fetchRegisteredUsers = async () => {
     try {
@@ -1185,6 +1191,8 @@ export default function App() {
         const savedPinned = await Storage.getItem('@gupshupp_pinned');
         const savedWallpaper = await Storage.getItem('@gupshupp_wallpaper');
         const savedRecent = await Storage.getItem('@gupshupp_recent_chats');
+        const savedSsProt = await Storage.getItem('@gupshupp_ss_protection');
+        if (savedSsProt) setScreenshotProtectionMode(savedSsProt);
 
         if (savedAvatar) setUserAvatar(savedAvatar);
         if (savedStatus) setUserStatus(savedStatus);
@@ -1351,13 +1359,23 @@ export default function App() {
       }
     });
 
-    socket.on('streak_updated', ({ room, streak }) => {
-      if (room === activeRoom) setActiveRoomStreak(streak);
+    socket.on('streak_updated', ({ room, streak, hoursRemaining, isHourglass, isFrozen }) => {
+      if (room === activeRoom) {
+        setActiveRoomStreak(streak);
+        setActiveRoomHoursRemaining(hoursRemaining || 24);
+        setActiveRoomIsHourglass(!!isHourglass);
+      }
       setRecentChats((prev) => {
         const existingIdx = prev.findIndex(c => c.id === room);
         if (existingIdx > -1) {
           const updated = [...prev];
-          updated[existingIdx] = { ...updated[existingIdx], streak };
+          updated[existingIdx] = { 
+            ...updated[existingIdx], 
+            streak, 
+            hoursRemaining: hoursRemaining || 24, 
+            isHourglass: !!isHourglass,
+            isFrozen: !!isFrozen
+          };
           Storage.setItem('@gupshupp_recent_chats', JSON.stringify(updated)).catch(() => {});
           return updated;
         }
@@ -1474,7 +1492,7 @@ export default function App() {
     };
   }, [currentUser, ghostMode]);
 
-  // 📸 Snapchat-Style Screenshot & Screen Capture Detection for Web
+  // 📸 Snapchat-Style Screenshot & Screen Capture Detection for Web (Alert + Hard Block Obfuscation)
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const handleKeyCapture = (e) => {
@@ -1483,15 +1501,38 @@ export default function App() {
           (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 's')) ||
           (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5'))
         ) {
-          if (activeRoom && currentUser) {
-            socket.emit('screenshot_taken', { room: activeRoom, user: currentUser });
+          if (screenshotProtectionMode === 'HARD_BLOCK') {
+            setIsScreenObfuscated(true);
+            setTimeout(() => setIsScreenObfuscated(false), 2500);
+          }
+          if (screenshotProtectionMode !== 'DISABLED' && activeRoom && currentUser) {
+            socket.emit('screenshot_taken', { room: activeRoom, user: currentUser, mode: screenshotProtectionMode });
           }
         }
       };
+
+      const handleWindowBlur = () => {
+        if (screenshotProtectionMode === 'HARD_BLOCK' && (activeOneTimePhoto || isDirectChat)) {
+          setIsScreenObfuscated(true);
+        }
+      };
+
+      const handleWindowFocus = () => {
+        if (isScreenObfuscated) {
+          setTimeout(() => setIsScreenObfuscated(false), 400);
+        }
+      };
+
       window.addEventListener('keyup', handleKeyCapture);
-      return () => window.removeEventListener('keyup', handleKeyCapture);
+      window.addEventListener('blur', handleWindowBlur);
+      window.addEventListener('focus', handleWindowFocus);
+      return () => {
+        window.removeEventListener('keyup', handleKeyCapture);
+        window.removeEventListener('blur', handleWindowBlur);
+        window.removeEventListener('focus', handleWindowFocus);
+      };
     }
-  }, [activeRoom, currentUser]);
+  }, [activeRoom, currentUser, screenshotProtectionMode, activeOneTimePhoto, isDirectChat, isScreenObfuscated]);
 
   // 📶 Adaptive Network Speed & Throttling Detector (50kbps Slow Network Protection)
   useEffect(() => {
@@ -2802,12 +2843,18 @@ export default function App() {
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             {isPinned && <Text style={styles.pinIcon}>📌</Text>}
                             <Text style={[styles.recentChatTitle, { color: theme.text }]}>{chat.title}</Text>
-                            {chat.streak > 0 && (
-                              <View style={styles.streakBadgePill}>
-                                <Text style={styles.streakBadgeText}>
-                                  {chat.streak >= 100 ? '👑' : (chat.streak >= 30 ? '💎' : (chat.streak >= 7 ? '⚡' : '🔥'))} {chat.streak}
-                                </Text>
+                            {chat.isHourglass ? (
+                              <View style={[styles.streakBadgePill, { borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.2)' }]}>
+                                <Text style={[styles.streakBadgeText, { color: '#ef4444' }]}>⌛ {chat.hoursRemaining || 3}h 🔥 {chat.streak}</Text>
                               </View>
+                            ) : (
+                              chat.streak > 0 && (
+                                <View style={styles.streakBadgePill}>
+                                  <Text style={styles.streakBadgeText}>
+                                    {chat.isFrozen ? '🧊 ' : ''}{chat.streak >= 100 ? '👑' : (chat.streak >= 30 ? '💎' : (chat.streak >= 7 ? '⚡' : '🔥'))} {chat.streak}
+                                  </Text>
+                                </View>
+                              )
                             )}
                           </View>
                           <Text style={[styles.recentChatTime, { color: theme.textMuted }]}>{chat.time}</Text>
@@ -3591,6 +3638,42 @@ export default function App() {
                   </TouchableOpacity>
                 </View>
 
+                {/* 🛡️ Snapchat Anti-Screenshot Shield Manual User Control */}
+                <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12, flexDirection: 'column', alignItems: 'flex-start' }]}>
+                  <View style={{ marginBottom: 10 }}>
+                    <Text style={[styles.privacyTitle, { color: theme.text }]}>🛡️ एंटी-स्क्रीनशॉट शील्ड (Screenshot Shield)</Text>
+                    <Text style={[styles.privacySub, { color: theme.textMuted }]}>स्क्रीनशॉट व स्क्रीन-रिकॉर्डिंग सुरक्षा मोड चुनें:</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6, width: '100%' }}>
+                    {[
+                      { id: 'ALERT_ONLY', label: '🔔 Alert Only', sub: 'सूचना भेजें' },
+                      { id: 'HARD_BLOCK', label: '🛡️ Hard Block', sub: 'ब्लर + ब्लैकआउट' },
+                      { id: 'DISABLED', label: '✕ Off', sub: 'बंद रखें' }
+                    ].map((mode) => (
+                      <TouchableOpacity
+                        key={mode.id}
+                        style={[
+                          styles.bubbleShapeBtn,
+                          { 
+                            flex: 1, 
+                            backgroundColor: screenshotProtectionMode === mode.id ? 'rgba(0,168,132,0.15)' : theme.surface, 
+                            borderColor: screenshotProtectionMode === mode.id ? theme.accentLight : theme.border,
+                            paddingVertical: 8
+                          }
+                        ]}
+                        onPress={async () => {
+                          setScreenshotProtectionMode(mode.id);
+                          await Storage.setItem('@gupshupp_ss_protection', mode.id);
+                          socket.emit('update_profile', { username: currentUser, privacySettings: { screenshotProtection: mode.id } });
+                        }}
+                      >
+                        <Text style={[styles.bubbleShapeText, { color: screenshotProtectionMode === mode.id ? theme.accentLight : theme.text, fontSize: 12, fontWeight: '800' }]}>{mode.label}</Text>
+                        <Text style={{ fontSize: 9, color: theme.textMuted, marginTop: 2, textAlign: 'center' }}>{mode.sub}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
                 {/* AI Auto-Responder Toggle */}
                 <View style={[styles.privacyBox, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 12 }]}>
                   <View style={{ flex: 1 }}>
@@ -3998,10 +4081,16 @@ export default function App() {
             <View style={{ marginLeft: 8, flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={[styles.chatTitleText, { color: theme.text }]} numberOfLines={1}>{chatTitle}</Text>
-                {activeRoomStreak > 0 && (
-                  <Text style={styles.headerStreakText}>
-                    {activeRoomStreak >= 100 ? '👑' : (activeRoomStreak >= 30 ? '💎' : (activeRoomStreak >= 7 ? '⚡' : '🔥'))} {activeRoomStreak}
-                  </Text>
+                {activeRoomIsHourglass ? (
+                  <View style={[styles.streakBadgePill, { borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.2)', marginLeft: 6 }]}>
+                    <Text style={[styles.streakBadgeText, { color: '#ef4444' }]}>⌛ {activeRoomHoursRemaining}h left 🔥 {activeRoomStreak}</Text>
+                  </View>
+                ) : (
+                  activeRoomStreak > 0 && (
+                    <Text style={styles.headerStreakText}>
+                      {activeRoomStreak >= 100 ? '👑' : (activeRoomStreak >= 30 ? '💎' : (activeRoomStreak >= 7 ? '⚡' : '🔥'))} {activeRoomStreak}
+                    </Text>
+                  )
                 )}
               </View>
               <View style={styles.chatSubTitleRow}>
@@ -4198,17 +4287,41 @@ export default function App() {
                     );
                   }
 
+                  const isFlameActive = floatingFlameMessageId === item._id;
+
+                  const handleBubblePress = () => {
+                    const now = Date.now();
+                    const lastTap = lastMessageTapRef.current[item._id] || 0;
+                    if (now - lastTap < 320) {
+                      // Double Tap detected! 🎯 Quick Flame Burst
+                      setFloatingFlameMessageId(item._id);
+                      socket.emit('add_reaction', { room: activeRoom, messageId: item._id, emoji: '🔥', username: currentUser });
+                      setTimeout(() => {
+                        setFloatingFlameMessageId((prev) => prev === item._id ? null : prev);
+                      }, 1800);
+                    }
+                    lastMessageTapRef.current[item._id] = now;
+                  };
+
                   return (
                     <TouchableOpacity 
                       activeOpacity={0.85}
+                      onPress={handleBubblePress}
                       onLongPress={() => setSelectedMessageForAction(item)}
                       style={[styles.messageRow, isMine ? styles.myRow : styles.otherRow]}
                     >
                       <View style={[
                         styles.bubble, 
                         isMine ? [styles.bubbleMineStyle, { backgroundColor: theme.bubbleMine }] : [styles.bubbleOtherStyle, { backgroundColor: theme.bubbleOther }],
-                        { borderRadius: getBubbleRadius() }
+                        { borderRadius: getBubbleRadius(), position: 'relative' }
                       ]}>
+                        {/* 🎯 Double-Tap Quick Flame Burst Floating Animation */}
+                        {isFlameActive && (
+                          <View style={styles.floatingFlameAnim}>
+                            <Text style={styles.floatingFlameText}>🔥 Quick Flame!</Text>
+                          </View>
+                        )}
+
                         {!isMine && (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                             <Text style={[styles.senderName, { color: theme.accentLight, marginBottom: 0 }]}>@{item.sender}</Text>
@@ -5575,6 +5688,15 @@ export default function App() {
           </View>
         </Modal>
 
+        {/* 🛡️ Hard Block Full Screen Obfuscation Overlay */}
+        {isScreenObfuscated && (
+          <View style={styles.obfuscateOverlay}>
+            <Text style={{ fontSize: 50, marginBottom: 12 }}>🛡️</Text>
+            <Text style={styles.obfuscateTitle}>Privacy Protected</Text>
+            <Text style={styles.obfuscateSub}>Screen capture is blocked by GupShupp Anti-Screenshot Shield</Text>
+          </View>
+        )}
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -6067,5 +6189,10 @@ const styles = StyleSheet.create({
   screenshotAlertBanner: { alignSelf: 'center', backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#ef4444', borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 14, marginVertical: 8, maxWidth: '90%' },
   screenshotAlertText: { color: '#ef4444', fontSize: 12, fontWeight: '800', textAlign: 'center' },
   watermarkOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'space-around', alignItems: 'center', opacity: 0.25, transform: [{ rotate: '-25deg' }] },
-  watermarkText: { color: '#ffffff', fontSize: 14, fontWeight: '900', letterSpacing: 2 }
+  watermarkText: { color: '#ffffff', fontSize: 14, fontWeight: '900', letterSpacing: 2 },
+  obfuscateOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000000', zIndex: 99999, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  obfuscateTitle: { color: '#ffffff', fontSize: 20, fontWeight: '900', textAlign: 'center' },
+  obfuscateSub: { color: '#8696a0', fontSize: 13, textAlign: 'center', marginTop: 6 },
+  floatingFlameAnim: { position: 'absolute', top: -20, right: 10, backgroundColor: 'rgba(245, 158, 11, 0.25)', borderColor: '#f59e0b', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, zIndex: 10 },
+  floatingFlameText: { color: '#f59e0b', fontWeight: '900', fontSize: 13 }
 });

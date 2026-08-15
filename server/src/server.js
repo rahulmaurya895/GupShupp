@@ -245,6 +245,72 @@ function broadcastOnlineUsers() {
 // ⚡ Snapchat-Style Snap Streaks Store
 const userStreaksStore = new Map();
 
+// ⚡ Two-Way Snap Streaks Engine Helper
+function calculateTwoWayStreak(cleanRoom, cleanSender) {
+    if (!cleanRoom.startsWith('dm_')) return { streak: 0, hoursRemaining: 0, isHourglass: false };
+    
+    const parts = cleanRoom.replace('dm_', '').split('_');
+    if (parts.length < 2) return { streak: 0, hoursRemaining: 0, isHourglass: false };
+    
+    const [userA, userB] = parts;
+    const now = Date.now();
+    const todayStr = new Date(now).toISOString().split('T')[0];
+    
+    let streakRecord = userStreaksStore.get(cleanRoom);
+    if (!streakRecord) {
+        streakRecord = {
+            streak: 0,
+            userA,
+            userB,
+            userA_lastSent: (cleanSender.toLowerCase() === userA.toLowerCase()) ? now : 0,
+            userB_lastSent: (cleanSender.toLowerCase() === userB.toLowerCase()) ? now : 0,
+            windowStart: now,
+            expiresAt: now + (24 * 60 * 60 * 1000),
+            lastStreakDate: '',
+            frozenUntil: 0
+        };
+        userStreaksStore.set(cleanRoom, streakRecord);
+    } else {
+        // Update sender's last active timestamp
+        if (cleanSender.toLowerCase() === userA.toLowerCase()) {
+            streakRecord.userA_lastSent = now;
+        } else if (cleanSender.toLowerCase() === userB.toLowerCase()) {
+            streakRecord.userB_lastSent = now;
+        }
+
+        // Check if streak was expired
+        if (now > streakRecord.expiresAt && now > streakRecord.frozenUntil) {
+            streakRecord.streak = 0;
+            streakRecord.windowStart = now;
+            streakRecord.expiresAt = now + (24 * 60 * 60 * 1000);
+            streakRecord.lastStreakDate = '';
+        }
+
+        // Check if both users have sent in the current window
+        const bothRepliedInWindow = (streakRecord.userA_lastSent >= streakRecord.windowStart) && 
+                                    (streakRecord.userB_lastSent >= streakRecord.windowStart);
+
+        if (bothRepliedInWindow && streakRecord.lastStreakDate !== todayStr) {
+            streakRecord.streak += 1;
+            streakRecord.lastStreakDate = todayStr;
+            streakRecord.windowStart = now;
+            streakRecord.expiresAt = now + (24 * 60 * 60 * 1000);
+        }
+        userStreaksStore.set(cleanRoom, streakRecord);
+    }
+
+    const hoursRemaining = Math.max(0, Math.ceil((streakRecord.expiresAt - now) / (1000 * 60 * 60)));
+    const isHourglass = (hoursRemaining <= 4 && hoursRemaining > 0 && streakRecord.streak > 0);
+
+    return {
+        streak: streakRecord.streak,
+        hoursRemaining,
+        isHourglass,
+        expiresAt: streakRecord.expiresAt,
+        lastStreakDate: streakRecord.lastStreakDate
+    };
+}
+
 // 🔔 Expo Push Notification Dispatcher
 async function sendPushNotification(targetUsers, title, body, data = {}) {
     const messages = [];
@@ -1301,11 +1367,21 @@ io.on('connection', (socket) => {
             socket.to(cleanRoom).emit('messages_read', { room: cleanRoom, reader: currentUsername });
         }
 
-        // ⚡ Snap Streaks Sync for DMs
+        // ⚡ Two-Way Snap Streaks Sync for DMs
         if (cleanRoom.startsWith('dm_')) {
-            const streakData = userStreaksStore.get(cleanRoom);
-            if (streakData) {
-                socket.emit('streak_updated', { room: cleanRoom, streak: streakData.streak, lastActiveDate: streakData.lastActiveDate });
+            const streakRecord = userStreaksStore.get(cleanRoom);
+            if (streakRecord) {
+                const now = Date.now();
+                const hoursRemaining = Math.max(0, Math.ceil((streakRecord.expiresAt - now) / (1000 * 60 * 60)));
+                const isHourglass = (hoursRemaining <= 4 && hoursRemaining > 0 && streakRecord.streak > 0);
+                socket.emit('streak_updated', {
+                    room: cleanRoom,
+                    streak: streakRecord.streak,
+                    hoursRemaining,
+                    isHourglass,
+                    expiresAt: streakRecord.expiresAt,
+                    lastStreakDate: streakRecord.lastStreakDate
+                });
             }
         }
     });
@@ -1325,31 +1401,18 @@ io.on('connection', (socket) => {
         const cleanSender = sanitizeIdentifier(sender, 'user');
         const cleanText = sanitizeInputText(text);
 
-        // ⚡ Snapchat-Style Snap Streaks Calculation
-        let currentStreak = 0;
+        // ⚡ Two-Way Snap Streaks Engine Calculation
+        let streakInfo = { streak: 0, hoursRemaining: 24, isHourglass: false };
         if (cleanRoom.startsWith('dm_')) {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-            let streakData = userStreaksStore.get(cleanRoom);
-
-            if (!streakData) {
-                streakData = { streak: 1, lastActiveDate: todayStr, lastSender: cleanSender };
-            } else {
-                if (streakData.lastActiveDate === todayStr) {
-                    // Maintained today
-                } else if (streakData.lastActiveDate === yesterday) {
-                    streakData.streak += 1;
-                    streakData.lastActiveDate = todayStr;
-                    streakData.lastSender = cleanSender;
-                } else {
-                    streakData.streak = 1;
-                    streakData.lastActiveDate = todayStr;
-                    streakData.lastSender = cleanSender;
-                }
-            }
-            userStreaksStore.set(cleanRoom, streakData);
-            currentStreak = streakData.streak;
-            io.to(cleanRoom).emit('streak_updated', { room: cleanRoom, streak: currentStreak, lastActiveDate: streakData.lastActiveDate });
+            streakInfo = calculateTwoWayStreak(cleanRoom, cleanSender);
+            io.to(cleanRoom).emit('streak_updated', {
+                room: cleanRoom,
+                streak: streakInfo.streak,
+                hoursRemaining: streakInfo.hoursRemaining,
+                isHourglass: streakInfo.isHourglass,
+                expiresAt: streakInfo.expiresAt,
+                lastStreakDate: streakInfo.lastStreakDate
+            });
         }
 
         // 🛡️ Group Admin Controls & Mute Enforcement Guard
@@ -1397,7 +1460,7 @@ io.on('connection', (socket) => {
             readBy: [cleanSender],
             starredBy: [],
             linkPreview,
-            streak: currentStreak,
+            streak: streakInfo.streak,
             transcript: '',
             disappearingTtl: disappearingTtl || 0,
             expiresAt: expiresAt,
@@ -1542,10 +1605,12 @@ io.on('connection', (socket) => {
     });
 
     // 📸 Snapchat-Style Screenshot & Screen Capture Alert Engine
-    socket.on('screenshot_taken', ({ room, user }) => {
+    socket.on('screenshot_taken', ({ room, user, mode }) => {
         if (!room || !user) return;
         const cleanRoom = sanitizeIdentifier(room, 'general');
         const cleanUser = sanitizeIdentifier(user, 'user');
+
+        // Mode can be 'ALERT_ONLY' or 'HARD_BLOCK'
         const alertMsg = {
             _id: `alert_ss_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             room: cleanRoom,
@@ -1554,12 +1619,34 @@ io.on('connection', (socket) => {
             type: 'screenshot_alert',
             isSystem: true,
             isScreenshotAlert: true,
+            mode: mode || 'ALERT_ONLY',
             status: 'read',
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             timestamp: new Date()
         };
         io.to(cleanRoom).emit('receive_message', alertMsg);
-        io.to(cleanRoom).emit('screenshot_alert', { room: cleanRoom, user: cleanUser, time: alertMsg.time });
+        io.to(cleanRoom).emit('screenshot_alert', { room: cleanRoom, user: cleanUser, mode: mode || 'ALERT_ONLY', time: alertMsg.time });
+    });
+
+    // 🧊 Streak Saver / Freeze Token
+    socket.on('redeem_streak_freeze', ({ room, username }) => {
+        if (!room || !username) return;
+        const cleanRoom = sanitizeIdentifier(room, 'general');
+        const streakRecord = userStreaksStore.get(cleanRoom);
+        if (streakRecord) {
+            streakRecord.frozenUntil = Date.now() + (24 * 60 * 60 * 1000);
+            streakRecord.expiresAt += (24 * 60 * 60 * 1000);
+            userStreaksStore.set(cleanRoom, streakRecord);
+            io.to(cleanRoom).emit('streak_updated', {
+                room: cleanRoom,
+                streak: streakRecord.streak,
+                hoursRemaining: 24,
+                isHourglass: false,
+                isFrozen: true,
+                expiresAt: streakRecord.expiresAt
+            });
+            socket.emit('streak_freeze_success', { message: '🧊 Streak has been frozen and protected for 24 hours!' });
+        }
     });
 
     // 3. In-Chat Polls & Real-Time Voting Engine (With Race Condition Lock)
