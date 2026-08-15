@@ -559,10 +559,26 @@ function validateAiPrompt(prompt, sender) {
     return { isValid: true };
 }
 
+const CryptoJS = require('crypto-js');
+const E2EE_SECRET_KEY = "gupshupp_enterprise_aes256_secret_key";
+function tryDecryptText(text) {
+    if (!text || typeof text !== 'string') return text || '';
+    if (text.startsWith('U2FsdGVkX1')) {
+        try {
+            const bytes = CryptoJS.AES.decrypt(text, E2EE_SECRET_KEY);
+            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+            if (decrypted) return decrypted;
+        } catch (e) {
+            // Ignore decryption error
+        }
+    }
+    return text;
+}
+
 // 🤖 GP AI Core Response Engine (Auto-Switching Dual AI + 80% Token Reduction)
 async function generateAiResponse(prompt, sender) {
-    const cleanPrompt = prompt.replace(/^@(ai|gp)\s*/i, '').trim();
-    if (!cleanPrompt) return `नमस्ते ${sender}! मैं GP AI हूँ। आप मुझसे कोई भी सवाल पूछ सकते हैं!`;
+    const rawClean = prompt ? prompt.replace(/^@(ai|gp)\s*/i, '').trim() : '';
+    const cleanPrompt = rawClean || 'Hello';
 
     // 1. Check Rate Limit (Prevent Quota Burning)
     const rateCheck = checkUserAiRateLimit(sender);
@@ -595,7 +611,8 @@ async function generateAiResponse(prompt, sender) {
 
 // 🎭 GP AI Multi-Agent Bot Squad Generator (With Auto-Switching Dual AI)
 async function generateSpecializedBotResponse(botType, prompt, sender) {
-    const cleanPrompt = prompt.replace(new RegExp(`^${botType}\\s*`, 'i'), '').trim();
+    const rawClean = prompt ? prompt.replace(new RegExp(`^${botType}\\s*`, 'i'), '').trim() : '';
+    const cleanPrompt = rawClean || (botType === '@roast' ? `Playful roast for @${sender}` : (botType === '@meme' ? 'Funny software developer tech meme' : (botType === '@news' ? 'Top tech AI update today' : 'Hello')));
 
     // 1. Check Rate Limit (Prevent Quota Burning)
     const rateCheck = checkUserAiRateLimit(sender);
@@ -623,7 +640,7 @@ async function generateSpecializedBotResponse(botType, prompt, sender) {
     } else if (botType === '@news') {
         systemPrompt = `You are @news, a fast tech news anchor in GupShupp. Give 2 sharp bullet points in Hindi/English on: "${cleanPrompt}".`;
     } else if (botType === '@roast') {
-        systemPrompt = `You are @roast in GupShupp. Give 1 hilarious, playful, clean roast punchline of ${sender} on: "${cleanPrompt}".`;
+        systemPrompt = `You are @roast in GupShupp. Give 1 hilarious, playful, clean roast punchline of @${sender} on: "${cleanPrompt}".`;
     } else {
         systemPrompt = `You are GP AI, the intelligent assistant in GupShupp. Reply concisely in 1-2 sentences to "${cleanPrompt}".`;
     }
@@ -1434,8 +1451,10 @@ io.on('connection', (socket) => {
             (room.startsWith('dm_') && (room.includes('_gp_ai_bot') || room.includes('_gp_ai')))
         );
 
-        if (!isBotSender && text) {
-            const allBotMatches = text.match(/@(?:gp|ai|coder|meme|news|roast)\b/gi);
+        const plainText = tryDecryptText(text);
+
+        if (!isBotSender && plainText) {
+            const allBotMatches = plainText.match(/@(?:gp|ai|coder|meme|news|roast)\b/gi);
             if ((allBotMatches && allBotMatches.length > 0) || isGpAiRoom) {
                 (async () => {
                     const uniqueBots = (allBotMatches && allBotMatches.length > 0)
@@ -1451,16 +1470,15 @@ io.on('connection', (socket) => {
                     };
 
                     for (const botType of uniqueBots) {
-                        const aiReplyText = await generateSpecializedBotResponse(botType, text, sender);
+                        const aiReplyText = await generateSpecializedBotResponse(botType, plainText, sender);
                         const aiMsgId = `ai_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
                         const aiMsgData = {
                             _id: aiMsgId,
                             room,
                             sender: botSenderNames[botType] || '🤖 GP AI',
                             text: aiReplyText,
-                            type: 'ai',
+                            type: 'text',
                             isAi: true, // 🛡️ Loop immunity: marked as AI
-                            status: 'read',
                             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                         };
 
