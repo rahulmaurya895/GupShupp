@@ -62,15 +62,20 @@ const LOCAL_PC_IP = "10.128.7.140";
 const ORACLE_CLOUD_IP = "140.238.225.236";
 const USE_ORACLE_CLOUD = true;
 
-const getHost = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location && window.location.hostname) {
-    return window.location.hostname;
+const getBaseUrl = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+    if (window.location.origin && window.location.origin !== 'null') {
+      return window.location.origin;
+    }
+    const host = window.location.hostname || ORACLE_CLOUD_IP;
+    const port = window.location.port ? `:${window.location.port}` : ':3000';
+    return `${window.location.protocol || 'http:'}//${host}${port}`;
   }
-  return USE_ORACLE_CLOUD ? ORACLE_CLOUD_IP : LOCAL_PC_IP;
+  const host = USE_ORACLE_CLOUD ? ORACLE_CLOUD_IP : LOCAL_PC_IP;
+  return `http://${host}:3000`;
 };
 
-const SERVER_HOST = getHost();
-const BASE_URL = `http://${SERVER_HOST}:3000`;
+const BASE_URL = getBaseUrl();
 const SOCKET_URL = BASE_URL;
 
 const socket = io(SOCKET_URL, { 
@@ -872,7 +877,7 @@ export default function App() {
   const fetchRegisteredUsers = async () => {
     try {
       setIsLoadingUsersList(true);
-      const res = await fetch(`${backendHost}/api/users`);
+      const res = await fetch(`${BASE_URL}/api/users`);
       const data = await res.json();
       if (data?.success && data.users) {
         setRegisteredUsersList(data.users.filter(u => u.username.toLowerCase() !== (currentUser || '').toLowerCase()));
